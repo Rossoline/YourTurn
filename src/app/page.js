@@ -16,7 +16,7 @@ function todayDate() {
 }
 
 // ─── Onboarding screen ───
-function OnboardingScreen({ user, supabase, onComplete }) {
+function OnboardingScreen({ user, supabase, onComplete, onLogout }) {
   const [mode, setMode] = useState(null); // "create" | "join"
   const [familyName, setFamilyName] = useState("");
   const [role, setRole] = useState(null); // "mama" | "papa"
@@ -147,6 +147,12 @@ function OnboardingScreen({ user, supabase, onComplete }) {
             Приєднатися за кодом
           </button>
         </div>
+        <button
+          onClick={onLogout}
+          className="text-zinc-600 text-sm hover:text-zinc-400 mt-2"
+        >
+          Вийти
+        </button>
       </div>
     );
   }
@@ -453,6 +459,7 @@ export default function Home() {
         user={user}
         supabase={supabase}
         onComplete={handleOnboardingComplete}
+        onLogout={handleLogout}
       />
     );
   }
