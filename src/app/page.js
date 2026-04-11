@@ -29,6 +29,7 @@ export default function Home() {
   const [inviteCode, setInviteCode] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [joinError, setJoinError] = useState(null);
+  const [showJoinForm, setShowJoinForm] = useState(false);
 
   const intervalRef = useRef(null);
   const lastTickRef = useRef(null);
@@ -53,8 +54,25 @@ export default function Home() {
         .single();
 
       if (member) {
+        // Already has a family — load it
         setFamilyId(member.family_id);
         await loadTimerState(member.family_id);
+      } else {
+        // First login — auto-create family
+        const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const { data: newFamily } = await supabase
+          .from("families")
+          .insert({ invite_code: code })
+          .select()
+          .single();
+
+        if (newFamily) {
+          await supabase
+            .from("family_members")
+            .insert({ family_id: newFamily.id, user_id: user.id });
+          setFamilyId(newFamily.id);
+          setInviteCode(code);
+        }
       }
       setLoading(false);
     }
@@ -212,23 +230,6 @@ export default function Home() {
     await saveState(null, 0, 0);
   };
 
-  const handleCreateFamily = async () => {
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const { data } = await supabase
-      .from("families")
-      .insert({ invite_code: code })
-      .select()
-      .single();
-
-    if (data) {
-      await supabase
-        .from("family_members")
-        .insert({ family_id: data.id, user_id: user.id });
-      setFamilyId(data.id);
-      setInviteCode(code);
-    }
-  };
-
   const handleJoinFamily = async () => {
     setJoinError(null);
     const { data: family } = await supabase
@@ -242,6 +243,20 @@ export default function Home() {
       return;
     }
 
+    if (family.id === familyId) {
+      setJoinError("Ви вже в цій сім'ї");
+      return;
+    }
+
+    // Remove from old family
+    if (familyId) {
+      await supabase
+        .from("family_members")
+        .delete()
+        .eq("family_id", familyId)
+        .eq("user_id", user.id);
+    }
+
     const { error } = await supabase
       .from("family_members")
       .insert({ family_id: family.id, user_id: user.id });
@@ -252,6 +267,12 @@ export default function Home() {
     }
 
     setFamilyId(family.id);
+    setShowJoinForm(false);
+    setJoinCode("");
+    setActiveParent(null);
+    setMamaTime(0);
+    setPapaTime(0);
+    await loadTimerState(family.id);
   };
 
   const handleLogout = async () => {
@@ -267,41 +288,39 @@ export default function Home() {
     );
   }
 
-  // No family yet — show create/join
-  if (!familyId) {
+  // Show invite code after first auto-creation
+  if (inviteCode && !showJoinForm) {
     return (
       <div className="flex flex-col items-center justify-center h-full px-6 bg-zinc-950 gap-6">
-        <h1 className="text-2xl font-bold">Налаштуйте сім'ю</h1>
-        <p className="text-zinc-400 text-center max-w-xs">
-          Створіть нову сім'ю або приєднайтесь за кодом запрошення
-        </p>
-
+        <h1 className="text-2xl font-bold">Сім'ю створено!</h1>
+        <div className="text-center">
+          <p className="text-zinc-400 text-sm">Код запрошення для партнера:</p>
+          <p className="text-3xl font-mono font-bold tracking-widest mt-2">
+            {inviteCode}
+          </p>
+          <p className="text-zinc-500 text-xs mt-2">
+            Надішліть цей код партнеру, щоб приєднатися
+          </p>
+        </div>
         <button
-          onClick={handleCreateFamily}
+          onClick={() => setInviteCode("")}
           className="w-full max-w-xs py-3 rounded-xl bg-white text-black font-semibold hover:bg-zinc-200 transition-colors"
         >
-          Створити сім'ю
+          Продовжити
         </button>
+      </div>
+    );
+  }
 
-        {inviteCode && (
-          <div className="text-center">
-            <p className="text-zinc-400 text-sm">Код запрошення:</p>
-            <p className="text-3xl font-mono font-bold tracking-widest mt-1">
-              {inviteCode}
-            </p>
-            <p className="text-zinc-500 text-xs mt-2">
-              Надішліть цей код партнеру
-            </p>
-          </div>
-        )}
-
+  // Join family form
+  if (showJoinForm) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full px-6 bg-zinc-950 gap-6">
+        <h1 className="text-2xl font-bold">Приєднатися до сім'ї</h1>
+        <p className="text-zinc-400 text-center max-w-xs">
+          Введіть код запрошення від партнера
+        </p>
         <div className="w-full max-w-xs flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-zinc-800" />
-            <span className="text-zinc-500 text-sm">або</span>
-            <div className="flex-1 h-px bg-zinc-800" />
-          </div>
-
           <input
             type="text"
             placeholder="Код запрошення"
@@ -315,18 +334,21 @@ export default function Home() {
           <button
             onClick={handleJoinFamily}
             disabled={!joinCode}
-            className="w-full py-3 rounded-xl bg-zinc-800 text-white font-semibold hover:bg-zinc-700 transition-colors disabled:opacity-30"
+            className="w-full py-3 rounded-xl bg-white text-black font-semibold hover:bg-zinc-200 transition-colors disabled:opacity-30"
           >
             Приєднатися
           </button>
+          <button
+            onClick={() => {
+              setShowJoinForm(false);
+              setJoinCode("");
+              setJoinError(null);
+            }}
+            className="text-zinc-500 text-sm hover:text-zinc-300"
+          >
+            Скасувати
+          </button>
         </div>
-
-        <button
-          onClick={handleLogout}
-          className="text-zinc-600 text-sm hover:text-zinc-400 mt-4"
-        >
-          Вийти
-        </button>
       </div>
     );
   }
@@ -367,6 +389,15 @@ export default function Home() {
                 className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700"
               >
                 Код запрошення
+              </button>
+              <button
+                onClick={() => {
+                  setShowJoinForm(true);
+                  setShowMenu(false);
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700"
+              >
+                Приєднатися до сім'ї
               </button>
               <button
                 onClick={() => {
