@@ -116,7 +116,7 @@ function OnboardingScreen({ user, supabase, onComplete, onLogout }) {
           </p>
         </div>
         <button
-          onClick={() => onComplete(null)}
+          onClick={() => window.location.reload()}
           className="w-full max-w-xs py-3 rounded-xl bg-white text-black font-semibold hover:bg-zinc-200 transition-colors"
         >
           Продовжити
