@@ -30,6 +30,19 @@ function OnboardingScreen({ user, supabase, onComplete, onLogout }) {
     setLoading(true);
     setError(null);
 
+    // Check if user already has a family
+    const { data: existing } = await supabase
+      .from("family_members")
+      .select("family_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (existing) {
+      // Already has a family, just reload
+      window.location.reload();
+      return;
+    }
+
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
     const { data: family, error: famErr } = await supabase
       .from("families")
@@ -277,7 +290,9 @@ export default function Home() {
       .from("family_members")
       .select("family_id")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     if (member) {
       setFamilyId(member.family_id);
