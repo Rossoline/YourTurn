@@ -15,21 +15,240 @@ function todayDate() {
   return new Date().toISOString().split("T")[0];
 }
 
+// ─── Onboarding screen ───
+function OnboardingScreen({ user, supabase, onComplete }) {
+  const [mode, setMode] = useState(null); // "create" | "join"
+  const [familyName, setFamilyName] = useState("");
+  const [role, setRole] = useState(null); // "mama" | "papa"
+  const [joinCode, setJoinCode] = useState("");
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [createdCode, setCreatedCode] = useState(null);
+
+  const handleCreate = async () => {
+    if (!familyName.trim() || !role) return;
+    setLoading(true);
+    setError(null);
+
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const { data: family, error: famErr } = await supabase
+      .from("families")
+      .insert({ name: familyName.trim(), invite_code: code })
+      .select()
+      .single();
+
+    if (famErr) {
+      setError("Не вдалося створити сім'ю");
+      setLoading(false);
+      return;
+    }
+
+    const { error: memErr } = await supabase
+      .from("family_members")
+      .insert({ family_id: family.id, user_id: user.id, role });
+
+    if (memErr) {
+      setError("Не вдалося додати вас до сім'ї");
+      setLoading(false);
+      return;
+    }
+
+    setCreatedCode(code);
+    setLoading(false);
+  };
+
+  const handleJoin = async () => {
+    if (!joinCode.trim() || !role) return;
+    setLoading(true);
+    setError(null);
+
+    const { data: family } = await supabase
+      .from("families")
+      .select("id")
+      .eq("invite_code", joinCode.trim().toUpperCase())
+      .single();
+
+    if (!family) {
+      setError("Сім'ю з таким кодом не знайдено");
+      setLoading(false);
+      return;
+    }
+
+    // Check if role is already taken
+    const { data: existing } = await supabase
+      .from("family_members")
+      .select("role")
+      .eq("family_id", family.id)
+      .eq("role", role)
+      .single();
+
+    if (existing) {
+      setError(`Роль "${role === "mama" ? "Мама" : "Тато"}" вже зайнята в цій сім'ї`);
+      setLoading(false);
+      return;
+    }
+
+    const { error: memErr } = await supabase
+      .from("family_members")
+      .insert({ family_id: family.id, user_id: user.id, role });
+
+    if (memErr) {
+      setError("Не вдалося приєднатися");
+      setLoading(false);
+      return;
+    }
+
+    onComplete(family.id);
+  };
+
+  // Show invite code after creating
+  if (createdCode) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full px-6 bg-zinc-950 gap-6">
+        <h1 className="text-2xl font-bold">Сім'ю створено!</h1>
+        <div className="text-center">
+          <p className="text-zinc-400 text-sm">Код запрошення для партнера:</p>
+          <p className="text-3xl font-mono font-bold tracking-widest mt-2">
+            {createdCode}
+          </p>
+          <p className="text-zinc-500 text-xs mt-2">
+            Надішліть цей код партнеру, щоб приєднатися
+          </p>
+        </div>
+        <button
+          onClick={() => onComplete(null)}
+          className="w-full max-w-xs py-3 rounded-xl bg-white text-black font-semibold hover:bg-zinc-200 transition-colors"
+        >
+          Продовжити
+        </button>
+      </div>
+    );
+  }
+
+  // Mode selection
+  if (!mode) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full px-6 bg-zinc-950 gap-6">
+        <h1 className="text-3xl font-bold">YourTurn</h1>
+        <p className="text-zinc-400 text-center max-w-xs">
+          Вітаємо! Створіть нову сім'ю або приєднайтесь до існуючої
+        </p>
+        <div className="w-full max-w-xs flex flex-col gap-3">
+          <button
+            onClick={() => setMode("create")}
+            className="w-full py-4 rounded-xl bg-white text-black font-semibold hover:bg-zinc-200 transition-colors"
+          >
+            Створити сім'ю
+          </button>
+          <button
+            onClick={() => setMode("join")}
+            className="w-full py-4 rounded-xl bg-zinc-800 text-white font-semibold hover:bg-zinc-700 transition-colors"
+          >
+            Приєднатися за кодом
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full px-6 bg-zinc-950 gap-6">
+      <h1 className="text-2xl font-bold">
+        {mode === "create" ? "Нова сім'я" : "Приєднатися"}
+      </h1>
+
+      <div className="w-full max-w-xs flex flex-col gap-4">
+        {mode === "create" && (
+          <input
+            type="text"
+            placeholder="Назва сім'ї"
+            value={familyName}
+            onChange={(e) => setFamilyName(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600"
+          />
+        )}
+
+        {mode === "join" && (
+          <input
+            type="text"
+            placeholder="Код запрошення"
+            value={joinCode}
+            onChange={(e) => setJoinCode(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-white text-center font-mono text-lg tracking-widest uppercase placeholder:text-zinc-500 placeholder:tracking-normal placeholder:font-sans placeholder:text-base focus:outline-none focus:border-zinc-600"
+          />
+        )}
+
+        {/* Role selection */}
+        <div>
+          <p className="text-zinc-400 text-sm mb-2">Ваша роль:</p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setRole("mama")}
+              className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
+                role === "mama"
+                  ? "bg-pink-500 text-white shadow-lg shadow-pink-500/30"
+                  : "bg-zinc-800 text-pink-400 hover:bg-zinc-700"
+              }`}
+            >
+              Мама
+            </button>
+            <button
+              onClick={() => setRole("papa")}
+              className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
+                role === "papa"
+                  ? "bg-blue-500 text-white shadow-lg shadow-blue-500/30"
+                  : "bg-zinc-800 text-blue-400 hover:bg-zinc-700"
+              }`}
+            >
+              Тато
+            </button>
+          </div>
+        </div>
+
+        {error && (
+          <p className="text-red-400 text-sm text-center">{error}</p>
+        )}
+
+        <button
+          onClick={mode === "create" ? handleCreate : handleJoin}
+          disabled={loading || !role || (mode === "create" ? !familyName.trim() : !joinCode.trim())}
+          className="w-full py-3 rounded-xl bg-white text-black font-semibold hover:bg-zinc-200 transition-colors disabled:opacity-30"
+        >
+          {loading
+            ? "Зачекайте..."
+            : mode === "create"
+              ? "Створити"
+              : "Приєднатися"}
+        </button>
+
+        <button
+          onClick={() => {
+            setMode(null);
+            setError(null);
+            setRole(null);
+          }}
+          className="text-zinc-500 text-sm hover:text-zinc-300 text-center"
+        >
+          Назад
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main app ───
 export default function Home() {
   const supabase = createClient();
 
   const [user, setUser] = useState(null);
   const [familyId, setFamilyId] = useState(null);
+  const [hasFamily, setHasFamily] = useState(null); // null = loading, true/false
   const [activeParent, setActiveParent] = useState(null);
   const [mamaTime, setMamaTime] = useState(0);
   const [papaTime, setPapaTime] = useState(0);
   const [lastSwitchAt, setLastSwitchAt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
-  const [inviteCode, setInviteCode] = useState("");
-  const [joinCode, setJoinCode] = useState("");
-  const [joinError, setJoinError] = useState(null);
-  const [showJoinForm, setShowJoinForm] = useState(false);
 
   const intervalRef = useRef(null);
   const lastTickRef = useRef(null);
@@ -44,41 +263,25 @@ export default function Home() {
   // Load family & timer state
   useEffect(() => {
     if (!user) return;
-
-    async function load() {
-      // Find user's family
-      const { data: member } = await supabase
-        .from("family_members")
-        .select("family_id")
-        .eq("user_id", user.id)
-        .single();
-
-      if (member) {
-        // Already has a family — load it
-        setFamilyId(member.family_id);
-        await loadTimerState(member.family_id);
-      } else {
-        // First login — auto-create family
-        const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-        const { data: newFamily } = await supabase
-          .from("families")
-          .insert({ invite_code: code })
-          .select()
-          .single();
-
-        if (newFamily) {
-          await supabase
-            .from("family_members")
-            .insert({ family_id: newFamily.id, user_id: user.id });
-          setFamilyId(newFamily.id);
-          setInviteCode(code);
-        }
-      }
-      setLoading(false);
-    }
-
-    load();
+    loadFamily();
   }, [user]);
+
+  async function loadFamily() {
+    const { data: member } = await supabase
+      .from("family_members")
+      .select("family_id")
+      .eq("user_id", user.id)
+      .single();
+
+    if (member) {
+      setFamilyId(member.family_id);
+      setHasFamily(true);
+      await loadTimerState(member.family_id);
+    } else {
+      setHasFamily(false);
+    }
+    setLoading(false);
+  }
 
   // Real-time subscription
   useEffect(() => {
@@ -126,7 +329,6 @@ export default function Home() {
     let mama = row.mama_time_ms || 0;
     let papa = row.papa_time_ms || 0;
 
-    // Calculate elapsed time since last switch if timer is running
     if (row.active_parent && row.last_switch_at) {
       const elapsed = Date.now() - new Date(row.last_switch_at).getTime();
       if (row.active_parent === "mama") mama += elapsed;
@@ -180,13 +382,10 @@ export default function Home() {
     );
   }
 
-  // Calculate accumulated time (without ongoing elapsed)
   function getAccumulatedTime() {
     let mama = mamaTime;
     let papa = papaTime;
 
-    // The displayed times already include elapsed from tick,
-    // so we need the base times for saving
     if (activeParent && lastSwitchAt) {
       const elapsed = Date.now() - new Date(lastSwitchAt).getTime();
       if (activeParent === "mama") mama = mamaTime - elapsed;
@@ -199,12 +398,10 @@ export default function Home() {
   const handleSwitch = async (parent) => {
     if (!familyId) return;
 
-    // Accumulate current running time into stored value
     const accumulated = getAccumulatedTime();
     let newMama = accumulated.mama;
     let newPapa = accumulated.papa;
 
-    // Add elapsed from current active parent
     if (activeParent && lastSwitchAt) {
       const elapsed = Date.now() - new Date(lastSwitchAt).getTime();
       if (activeParent === "mama") newMama += elapsed;
@@ -230,56 +427,17 @@ export default function Home() {
     await saveState(null, 0, 0);
   };
 
-  const handleJoinFamily = async () => {
-    setJoinError(null);
-    const { data: family } = await supabase
-      .from("families")
-      .select("id")
-      .eq("invite_code", joinCode.toUpperCase())
-      .single();
-
-    if (!family) {
-      setJoinError("Сім'ю не знайдено");
-      return;
-    }
-
-    if (family.id === familyId) {
-      setJoinError("Ви вже в цій сім'ї");
-      return;
-    }
-
-    // Remove from old family
-    if (familyId) {
-      await supabase
-        .from("family_members")
-        .delete()
-        .eq("family_id", familyId)
-        .eq("user_id", user.id);
-    }
-
-    const { error } = await supabase
-      .from("family_members")
-      .insert({ family_id: family.id, user_id: user.id });
-
-    if (error) {
-      setJoinError("Не вдалося приєднатися");
-      return;
-    }
-
-    setFamilyId(family.id);
-    setShowJoinForm(false);
-    setJoinCode("");
-    setActiveParent(null);
-    setMamaTime(0);
-    setPapaTime(0);
-    await loadTimerState(family.id);
-  };
-
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.href = "/login";
   };
 
+  const handleOnboardingComplete = async (fid) => {
+    // Reload family from DB
+    await loadFamily();
+  };
+
+  // Loading
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full bg-zinc-950">
@@ -288,68 +446,14 @@ export default function Home() {
     );
   }
 
-  // Show invite code after first auto-creation
-  if (inviteCode && !showJoinForm) {
+  // Onboarding — no family yet
+  if (hasFamily === false) {
     return (
-      <div className="flex flex-col items-center justify-center h-full px-6 bg-zinc-950 gap-6">
-        <h1 className="text-2xl font-bold">Сім'ю створено!</h1>
-        <div className="text-center">
-          <p className="text-zinc-400 text-sm">Код запрошення для партнера:</p>
-          <p className="text-3xl font-mono font-bold tracking-widest mt-2">
-            {inviteCode}
-          </p>
-          <p className="text-zinc-500 text-xs mt-2">
-            Надішліть цей код партнеру, щоб приєднатися
-          </p>
-        </div>
-        <button
-          onClick={() => setInviteCode("")}
-          className="w-full max-w-xs py-3 rounded-xl bg-white text-black font-semibold hover:bg-zinc-200 transition-colors"
-        >
-          Продовжити
-        </button>
-      </div>
-    );
-  }
-
-  // Join family form
-  if (showJoinForm) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full px-6 bg-zinc-950 gap-6">
-        <h1 className="text-2xl font-bold">Приєднатися до сім'ї</h1>
-        <p className="text-zinc-400 text-center max-w-xs">
-          Введіть код запрошення від партнера
-        </p>
-        <div className="w-full max-w-xs flex flex-col gap-3">
-          <input
-            type="text"
-            placeholder="Код запрошення"
-            value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-white text-center font-mono text-lg tracking-widest uppercase placeholder:text-zinc-500 placeholder:tracking-normal placeholder:font-sans placeholder:text-base focus:outline-none focus:border-zinc-600"
-          />
-          {joinError && (
-            <p className="text-red-400 text-sm text-center">{joinError}</p>
-          )}
-          <button
-            onClick={handleJoinFamily}
-            disabled={!joinCode}
-            className="w-full py-3 rounded-xl bg-white text-black font-semibold hover:bg-zinc-200 transition-colors disabled:opacity-30"
-          >
-            Приєднатися
-          </button>
-          <button
-            onClick={() => {
-              setShowJoinForm(false);
-              setJoinCode("");
-              setJoinError(null);
-            }}
-            className="text-zinc-500 text-sm hover:text-zinc-300"
-          >
-            Скасувати
-          </button>
-        </div>
-      </div>
+      <OnboardingScreen
+        user={user}
+        supabase={supabase}
+        onComplete={handleOnboardingComplete}
+      />
     );
   }
 
@@ -389,15 +493,6 @@ export default function Home() {
                 className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700"
               >
                 Код запрошення
-              </button>
-              <button
-                onClick={() => {
-                  setShowJoinForm(true);
-                  setShowMenu(false);
-                }}
-                className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700"
-              >
-                Приєднатися до сім'ї
               </button>
               <button
                 onClick={() => {
