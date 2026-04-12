@@ -17,7 +17,6 @@ export async function loadTimerState(supabase, familyId) {
       .eq("date", today),
   ]);
 
-  // Build times map: { participantId: ms }
   const times = {};
   if (entries) {
     for (const e of entries) {
@@ -25,7 +24,6 @@ export async function loadTimerState(supabase, familyId) {
     }
   }
 
-  // Add elapsed for active participant
   if (state?.active_participant_id && state?.last_switch_at) {
     const elapsed = Date.now() - new Date(state.last_switch_at).getTime();
     const pid = state.active_participant_id;
@@ -40,12 +38,11 @@ export async function loadTimerState(supabase, familyId) {
   };
 }
 
-export async function saveTimerState(supabase, { familyId, activeParticipantId, times, expectedVersion }) {
+export async function saveTimerState(supabase, { familyId, activeParticipantId, previousParticipantId, times, expectedVersion }) {
   const today = todayDate();
   const now = new Date().toISOString();
   const newVersion = expectedVersion + 1;
 
-  // Version check
   const { data: existing } = await supabase
     .from("timer_state")
     .select("version")
@@ -63,7 +60,6 @@ export async function saveTimerState(supabase, { familyId, activeParticipantId, 
     last_switch_at: activeParticipantId ? now : null,
     updated_at: now,
     version: newVersion,
-    // Keep old columns null
     active_parent: null,
     mama_time_ms: 0,
     papa_time_ms: 0,
@@ -86,7 +82,7 @@ export async function saveTimerState(supabase, { familyId, activeParticipantId, 
     if (error) return { conflict: true };
   }
 
-  // Upsert timer_entries for each participant
+  // Upsert timer_entries
   const entries = Object.entries(times).map(([participantId, timeMs]) => ({
     family_id: familyId,
     participant_id: participantId,
@@ -100,7 +96,42 @@ export async function saveTimerState(supabase, { familyId, activeParticipantId, 
       .upsert(entries, { onConflict: "family_id,participant_id,date" });
   }
 
+  // Close previous session
+  if (previousParticipantId) {
+    await supabase
+      .from("timer_sessions")
+      .update({ ended_at: now, duration_ms: times[previousParticipantId] || 0 })
+      .eq("family_id", familyId)
+      .eq("participant_id", previousParticipantId)
+      .is("ended_at", null);
+  }
+
+  // Open new session
+  if (activeParticipantId) {
+    await supabase
+      .from("timer_sessions")
+      .insert({
+        family_id: familyId,
+        participant_id: activeParticipantId,
+        date: today,
+        started_at: now,
+      });
+  }
+
   return { version: newVersion };
+}
+
+export async function getTodaySessions(supabase, familyId) {
+  const today = todayDate();
+
+  const { data } = await supabase
+    .from("timer_sessions")
+    .select("participant_id, started_at, ended_at")
+    .eq("family_id", familyId)
+    .eq("date", today)
+    .order("started_at", { ascending: true });
+
+  return data || [];
 }
 
 export function subscribeToTimer(supabase, familyId, onUpdate) {
@@ -108,22 +139,12 @@ export function subscribeToTimer(supabase, familyId, onUpdate) {
     .channel(`timer_${familyId}`)
     .on(
       "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "timer_state",
-        filter: `family_id=eq.${familyId}`,
-      },
+      { event: "*", schema: "public", table: "timer_state", filter: `family_id=eq.${familyId}` },
       () => onUpdate()
     )
     .on(
       "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "timer_entries",
-        filter: `family_id=eq.${familyId}`,
-      },
+      { event: "*", schema: "public", table: "timer_entries", filter: `family_id=eq.${familyId}` },
       () => onUpdate()
     )
     .subscribe();

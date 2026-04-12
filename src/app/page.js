@@ -197,6 +197,7 @@ export default function Home() {
               percent={percent}
               isActive={timer.activeParticipantId === p.id}
               colorKey={p.color}
+              startedAt={timer.activeParticipantId === p.id ? timer.lastSwitchAt : null}
             />
           );
         })}

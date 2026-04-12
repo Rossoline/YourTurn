@@ -3,8 +3,15 @@
 import { formatTime } from "@/utils/format";
 import { getColor } from "@/utils/colors";
 
-export default function TimerDisplay({ name, time, percent, isActive, colorKey }) {
+function formatStartTime(isoString) {
+  if (!isoString) return null;
+  const d = new Date(isoString);
+  return d.toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" });
+}
+
+export default function TimerDisplay({ name, time, percent, isActive, colorKey, startedAt }) {
   const c = getColor(colorKey);
+  const startTime = isActive ? formatStartTime(startedAt) : null;
 
   return (
     <div
@@ -22,8 +29,13 @@ export default function TimerDisplay({ name, time, percent, isActive, colorKey }
       >
         {formatTime(time)}
       </span>
+      {startTime && (
+        <span className={`text-xs ${c.textMuted} mt-1`}>
+          з {startTime}
+        </span>
+      )}
       {percent !== null && (
-        <span className={`text-xs ${c.percentText} mt-2`}>
+        <span className={`text-xs ${c.percentText} mt-1`}>
           {Math.round(percent)}%
         </span>
       )}

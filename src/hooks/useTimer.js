@@ -73,10 +73,11 @@ export function useTimer(supabase, familyId) {
     return base;
   }
 
-  async function save(newActiveId, newTimes) {
+  async function save(newActiveId, newTimes, previousId = null) {
     const result = await saveTimerState(supabase, {
       familyId,
       activeParticipantId: newActiveId,
+      previousParticipantId: previousId,
       times: newTimes,
       expectedVersion: versionRef.current,
     });
@@ -104,12 +105,13 @@ export function useTimer(supabase, familyId) {
       }
 
       const newActiveId = activeParticipantId === participantId ? null : participantId;
+      const previousId = activeParticipantId;
 
       setActiveParticipantId(newActiveId);
       setTimes(base);
       setLastSwitchAt(newActiveId ? new Date().toISOString() : null);
 
-      await save(newActiveId, base);
+      await save(newActiveId, base, previousId);
     });
   };
 
@@ -117,10 +119,11 @@ export function useTimer(supabase, familyId) {
     if (!familyId) return;
 
     await throttle(async () => {
+      const previousId = activeParticipantId;
       setActiveParticipantId(null);
       setTimes({});
       setLastSwitchAt(null);
-      await save(null, {});
+      await save(null, {}, previousId);
     });
   };
 
@@ -135,6 +138,7 @@ export function useTimer(supabase, familyId) {
 
   return {
     activeParticipantId,
+    lastSwitchAt,
     times,
     totalTime,
     conflict,

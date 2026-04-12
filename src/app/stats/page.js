@@ -5,12 +5,15 @@ import { createClient } from "@/lib/supabase/client";
 import { getUserFamily } from "@/services/familyService";
 import { getParticipants } from "@/services/participantService";
 import { getStats, aggregateStats } from "@/services/statsService";
+import { getTodaySessions } from "@/services/timerService";
 import DayBar from "@/components/DayBar";
 import StatsSummary from "@/components/StatsSummary";
+import TodayDetail from "@/components/TodayDetail";
 import { getColor } from "@/utils/colors";
 import Link from "next/link";
 
 const PERIODS = [
+  { label: "Сьогодні", days: 0 },
   { label: "7 днів", days: 7 },
   { label: "14 днів", days: 14 },
   { label: "30 днів", days: 30 },
@@ -21,7 +24,8 @@ export default function StatsPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState([]);
   const [participants, setParticipants] = useState([]);
-  const [period, setPeriod] = useState(7);
+  const [sessions, setSessions] = useState([]);
+  const [period, setPeriod] = useState(0);
 
   useEffect(() => {
     async function load() {
@@ -32,13 +36,22 @@ export default function StatsPage() {
       const member = await getUserFamily(supabase, user.id);
       if (!member) return;
 
-      const [data, parts] = await Promise.all([
-        getStats(supabase, member.family_id, period),
-        getParticipants(supabase, member.family_id),
-      ]);
-
-      setStats(data);
+      const parts = await getParticipants(supabase, member.family_id);
       setParticipants(parts);
+
+      if (period === 0) {
+        const [todayData, todaySessions] = await Promise.all([
+          getStats(supabase, member.family_id, 1),
+          getTodaySessions(supabase, member.family_id),
+        ]);
+        setStats(todayData);
+        setSessions(todaySessions);
+      } else {
+        const data = await getStats(supabase, member.family_id, period);
+        setStats(data);
+        setSessions([]);
+      }
+
       setLoading(false);
     }
 
@@ -85,44 +98,56 @@ export default function StatsPage() {
           ))}
         </div>
 
-        {/* Summary */}
-        {summary.participantStats.length > 0 ? (
-          <StatsSummary {...summary} />
+        {/* Today detail view */}
+        {period === 0 ? (
+          <TodayDetail
+            sessions={sessions}
+            participants={participants}
+            participantStats={summary.participantStats}
+            grandTotal={summary.grandTotal}
+          />
         ) : (
-          <div className="text-center text-zinc-500 py-4">
-            Немає даних за цей період
-          </div>
-        )}
+          <>
+            {/* Summary */}
+            {summary.participantStats.length > 0 ? (
+              <StatsSummary {...summary} />
+            ) : (
+              <div className="text-center text-zinc-500 py-4">
+                Немає даних за цей період
+              </div>
+            )}
 
-        {/* Chart */}
-        {stats.length > 0 && (
-          <div>
-            <h2 className="text-zinc-400 text-sm font-medium mb-3">По днях</h2>
-            <div className="flex gap-1">
-              {stats.map((day) => (
-                <DayBar
-                  key={day.date}
-                  date={day.date}
-                  participants={day.participants}
-                  total={day.total}
-                  maxTotal={maxTotal}
-                  allParticipants={participants}
-                />
-              ))}
-            </div>
-            {/* Legend */}
-            <div className="flex flex-wrap justify-center gap-4 mt-4">
-              {participants.map((p) => {
-                const c = getColor(p.color);
-                return (
-                  <div key={p.id} className="flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded-sm ${c.bar}`} />
-                    <span className="text-zinc-500 text-xs">{p.name}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+            {/* Chart */}
+            {stats.length > 0 && (
+              <div>
+                <h2 className="text-zinc-400 text-sm font-medium mb-3">По днях</h2>
+                <div className="flex gap-1">
+                  {stats.map((day) => (
+                    <DayBar
+                      key={day.date}
+                      date={day.date}
+                      participants={day.participants}
+                      total={day.total}
+                      maxTotal={maxTotal}
+                      allParticipants={participants}
+                    />
+                  ))}
+                </div>
+                {/* Legend */}
+                <div className="flex flex-wrap justify-center gap-4 mt-4">
+                  {participants.map((p) => {
+                    const c = getColor(p.color);
+                    return (
+                      <div key={p.id} className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-sm ${c.bar}`} />
+                        <span className="text-zinc-500 text-xs">{p.name}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
