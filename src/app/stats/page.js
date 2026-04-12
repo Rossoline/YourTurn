@@ -10,6 +10,7 @@ import DayBar from "@/components/DayBar";
 import StatsSummary from "@/components/StatsSummary";
 import TodayDetail from "@/components/TodayDetail";
 import { getColor } from "@/utils/colors";
+import { StatsSkeleton } from "@/components/Skeleton";
 import Link from "next/link";
 
 const PERIODS = [
@@ -63,11 +64,7 @@ export default function StatsPage() {
   }, [period]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full bg-zinc-950">
-        <div className="text-zinc-500">Завантаження...</div>
-      </div>
-    );
+    return <StatsSkeleton />;
   }
 
   const summary = aggregateStats(stats, participants);

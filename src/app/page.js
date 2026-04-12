@@ -15,6 +15,7 @@ import ParticipantManager from "@/components/ParticipantManager";
 import BottomTabs from "@/components/BottomTabs";
 import CalendarView from "@/components/CalendarView";
 import { useToast } from "@/components/Toast";
+import { TimerSkeleton } from "@/components/Skeleton";
 
 export default function Home() {
   const supabase = createClient();
@@ -81,11 +82,7 @@ export default function Home() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full bg-zinc-950">
-        <div className="text-zinc-500">Завантаження...</div>
-      </div>
-    );
+    return <TimerSkeleton />;
   }
 
   if (hasFamily === false) {
@@ -175,11 +172,12 @@ export default function Home() {
       {/* Conflict banner */}
       {timer.conflict && (
         <div
-          className="flex items-center justify-between px-4 py-2 bg-amber-900/80 text-amber-200 text-sm cursor-pointer"
+          className="flex items-center gap-3 px-4 py-2.5 bg-amber-900/80 text-amber-200 text-sm cursor-pointer animate-pulse"
           onClick={timer.dismissConflict}
         >
-          <span>Хтось змінив таймер. Оновлено.</span>
-          <span className="text-amber-400 font-medium">OK</span>
+          <span className="text-base">⚠</span>
+          <span className="flex-1">Таймер змінено з іншого пристрою. Дані оновлено до актуального стану.</span>
+          <span className="text-amber-400 font-semibold shrink-0">OK</span>
         </div>
       )}
 
