@@ -1,6 +1,6 @@
 "use client";
 
-import { formatTime } from "@/utils/format";
+import { formatTime, todayDate } from "@/utils/format";
 import { getColor } from "@/utils/colors";
 
 const WEEKDAYS_UA = ["Нд", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
@@ -11,7 +11,7 @@ export default function DayBar({ date, participants, total, maxTotal, allPartici
   const d = new Date(date + "T00:00:00");
   const weekday = WEEKDAYS_UA[d.getDay()];
   const day = d.getDate();
-  const isToday = date === new Date().toISOString().split("T")[0];
+  const isToday = date === todayDate();
 
   // Build segments for each participant
   const segments = allParticipants

@@ -32,23 +32,35 @@ export default function Home() {
   const activeParticipants = participants.filter((p) => p.is_active);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setUser(user);
+      } else {
+        setLoading(false);
+      }
+    }).catch(() => setLoading(false));
   }, []);
 
   useEffect(() => {
     if (!user) return;
 
     getUserFamily(supabase, user.id).then(async (member) => {
-      if (member) {
-        setFamilyId(member.family_id);
-        setHasFamily(true);
-        const p = await getParticipants(supabase, member.family_id);
-        setParticipants(p);
-      } else {
+      try {
+        if (member) {
+          setFamilyId(member.family_id);
+          setHasFamily(true);
+          const p = await getParticipants(supabase, member.family_id);
+          setParticipants(p);
+        } else {
+          setHasFamily(false);
+        }
+      } catch (err) {
+        console.error("Failed to load family:", err);
         setHasFamily(false);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    });
+    }).catch(() => setLoading(false));
   }, [user]);
 
   const reloadParticipants = useCallback(async () => {
@@ -58,8 +70,11 @@ export default function Home() {
   }, [familyId, supabase]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    window.location.href = "/login";
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      window.location.href = "/login";
+    }
   };
 
   if (loading) {

@@ -1,17 +1,11 @@
 "use client";
 
-import { formatTime } from "@/utils/format";
+import { formatTime, formatClock } from "@/utils/format";
 import { getColor } from "@/utils/colors";
-
-function formatStartTime(isoString) {
-  if (!isoString) return null;
-  const d = new Date(isoString);
-  return d.toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" });
-}
 
 export default function TimerDisplay({ name, time, percent, isActive, colorKey, startedAt }) {
   const c = getColor(colorKey);
-  const startTime = isActive ? formatStartTime(startedAt) : null;
+  const startTime = isActive && startedAt ? formatClock(startedAt) : null;
 
   return (
     <div

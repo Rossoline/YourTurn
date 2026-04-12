@@ -1,5 +1,6 @@
 "use client";
 
+import { toParticipantMap } from "@/utils/format";
 import { getColor } from "@/utils/colors";
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"];
@@ -47,10 +48,7 @@ export default function CalendarMonth({
     eventsByDay[day].push(e);
   }
 
-  const participantMap = {};
-  for (const p of participants) {
-    participantMap[p.id] = p;
-  }
+  const participantMap = toParticipantMap(participants);
 
   const selectedDay = selectedDate ? parseInt(selectedDate.split("-")[2], 10) : null;
 

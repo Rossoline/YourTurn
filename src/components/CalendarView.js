@@ -15,8 +15,12 @@ export default function CalendarView({ supabase, familyId, userId, participants 
 
   const loadMonth = useCallback(async () => {
     if (!familyId) return;
-    const data = await getEventsForMonth(supabase, familyId, year, month);
-    setMonthEvents(data);
+    try {
+      const data = await getEventsForMonth(supabase, familyId, year, month);
+      setMonthEvents(data);
+    } catch (err) {
+      console.error("Failed to load month events:", err);
+    }
   }, [supabase, familyId, year, month]);
 
   useEffect(() => {
@@ -25,8 +29,12 @@ export default function CalendarView({ supabase, familyId, userId, participants 
 
   const loadDay = useCallback(async () => {
     if (!familyId || !selectedDate) return;
-    const data = await getEventsForDate(supabase, familyId, selectedDate);
-    setDayEvents(data);
+    try {
+      const data = await getEventsForDate(supabase, familyId, selectedDate);
+      setDayEvents(data);
+    } catch (err) {
+      console.error("Failed to load day events:", err);
+    }
   }, [supabase, familyId, selectedDate]);
 
   useEffect(() => {

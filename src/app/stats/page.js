@@ -30,29 +30,33 @@ export default function StatsPage() {
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
-      const member = await getUserFamily(supabase, user.id);
-      if (!member) return;
+        const member = await getUserFamily(supabase, user.id);
+        if (!member) return;
 
-      const parts = await getParticipants(supabase, member.family_id);
-      setParticipants(parts);
+        const parts = await getParticipants(supabase, member.family_id);
+        setParticipants(parts);
 
-      if (period === 0) {
-        const [todayData, todaySessions] = await Promise.all([
-          getStats(supabase, member.family_id, 1),
-          getTodaySessions(supabase, member.family_id),
-        ]);
-        setStats(todayData);
-        setSessions(todaySessions);
-      } else {
-        const data = await getStats(supabase, member.family_id, period);
-        setStats(data);
-        setSessions([]);
+        if (period === 0) {
+          const [todayData, todaySessions] = await Promise.all([
+            getStats(supabase, member.family_id, 1),
+            getTodaySessions(supabase, member.family_id),
+          ]);
+          setStats(todayData);
+          setSessions(todaySessions);
+        } else {
+          const data = await getStats(supabase, member.family_id, period);
+          setStats(data);
+          setSessions([]);
+        }
+      } catch (err) {
+        console.error("Failed to load stats:", err);
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     }
 
     load();

@@ -1,8 +1,10 @@
+import { todayDate } from "@/utils/format";
+
 export async function getStats(supabase, familyId, days = 7) {
   const from = new Date();
   from.setDate(from.getDate() - (days - 1));
   const fromStr = from.toISOString().split("T")[0];
-  const today = new Date().toISOString().split("T")[0];
+  const today = todayDate();
 
   // Get entries and active state
   const [{ data: entries }, { data: state }] = await Promise.all([

@@ -11,7 +11,11 @@ export async function getUserFamily(supabase, userId) {
 }
 
 export async function createFamily(supabase, { name, userId, role }) {
-  const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+  if (!name?.trim()) return { error: "Вкажіть назву сім'ї" };
+  if (!userId) return { error: "Користувач не авторизований" };
+  if (!role?.trim()) return { error: "Вкажіть роль" };
+  const bytes = crypto.getRandomValues(new Uint8Array(4));
+  const code = Array.from(bytes, (b) => b.toString(36)).join("").substring(0, 6).toUpperCase();
 
   const { data: family, error: famErr } = await supabase
     .from("families")
@@ -31,6 +35,10 @@ export async function createFamily(supabase, { name, userId, role }) {
 }
 
 export async function joinFamily(supabase, { inviteCode, userId, role }) {
+  if (!inviteCode?.trim()) return { error: "Вкажіть код запрошення" };
+  if (!userId) return { error: "Користувач не авторизований" };
+  if (!role?.trim()) return { error: "Вкажіть роль" };
+
   const { data: family } = await supabase
     .from("families")
     .select("id")

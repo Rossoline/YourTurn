@@ -12,6 +12,9 @@ export async function getParticipants(supabase, familyId) {
 }
 
 export async function addParticipant(supabase, { familyId, name, color }) {
+  if (!familyId) return { error: "Сім'я не знайдена" };
+  if (!name?.trim()) return { error: "Вкажіть ім'я учасника" };
+
   // Auto-pick color if not specified
   if (!color) {
     const existing = await getParticipants(supabase, familyId);

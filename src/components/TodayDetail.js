@@ -1,12 +1,7 @@
 "use client";
 
-import { formatTime } from "@/utils/format";
+import { formatTime, formatClock, toParticipantMap } from "@/utils/format";
 import { getColor } from "@/utils/colors";
-
-function formatClock(iso) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" });
-}
 
 function sessionDuration(session) {
   const start = new Date(session.started_at).getTime();
@@ -15,10 +10,7 @@ function sessionDuration(session) {
 }
 
 export default function TodayDetail({ sessions, participants, participantStats, grandTotal }) {
-  const participantMap = {};
-  for (const p of participants) {
-    participantMap[p.id] = p;
-  }
+  const participantMap = toParticipantMap(participants);
 
   return (
     <div className="flex flex-col gap-6">

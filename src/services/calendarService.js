@@ -26,12 +26,28 @@ export async function getEventsForDate(supabase, familyId, date) {
 }
 
 export async function createEvent(supabase, { familyId, participantId, title, date, startTime, endTime, userId }) {
+  if (!title?.trim()) return { error: "Вкажіть назву події" };
+  if (!date) return { error: "Вкажіть дату" };
+  if (!startTime || !endTime) return { error: "Вкажіть час початку і кінця" };
+  if (startTime >= endTime) return { error: "Час початку має бути раніше за кінець" };
+  if (!userId) return { error: "Користувач не авторизований" };
+
+  if (participantId) {
+    const { data: p } = await supabase
+      .from("participants")
+      .select("id")
+      .eq("id", participantId)
+      .eq("family_id", familyId)
+      .maybeSingle();
+    if (!p) return { error: "Учасник не належить до цієї сім'ї" };
+  }
+
   const { data, error } = await supabase
     .from("calendar_events")
     .insert({
       family_id: familyId,
-      participant_id: participantId,
-      title,
+      participant_id: participantId || null,
+      title: title.trim(),
       date,
       start_time: startTime,
       end_time: endTime,
@@ -40,13 +56,13 @@ export async function createEvent(supabase, { familyId, participantId, title, da
     .select()
     .single();
 
-  if (error) throw error;
-  return data;
+  if (error) return { error: "Не вдалося створити подію" };
+  return { event: data };
 }
 
 export async function updateEvent(supabase, eventId, updates) {
   const mapped = {};
-  if (updates.title !== undefined) mapped.title = updates.title;
+  if (updates.title !== undefined) mapped.title = updates.title.trim();
   if (updates.participantId !== undefined) mapped.participant_id = updates.participantId;
   if (updates.date !== undefined) mapped.date = updates.date;
   if (updates.startTime !== undefined) mapped.start_time = updates.startTime;
@@ -57,7 +73,7 @@ export async function updateEvent(supabase, eventId, updates) {
     .update(mapped)
     .eq("id", eventId);
 
-  if (error) throw error;
+  return { error: error ? "Не вдалося оновити подію" : null };
 }
 
 export async function deleteEvent(supabase, eventId) {
@@ -66,5 +82,5 @@ export async function deleteEvent(supabase, eventId) {
     .delete()
     .eq("id", eventId);
 
-  if (error) throw error;
+  return { error: error ? "Не вдалося видалити подію" : null };
 }

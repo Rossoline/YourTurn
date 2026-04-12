@@ -1,13 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { formatDateLabel, toParticipantMap } from "@/utils/format";
 import { getColor } from "@/utils/colors";
 import { createEvent, deleteEvent } from "@/services/calendarService";
-
-function formatDateLabel(dateStr) {
-  const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("uk-UA", { weekday: "long", day: "numeric", month: "long" });
-}
 
 function EventCard({ event, participant, onDelete }) {
   const c = participant ? getColor(participant.color) : null;
@@ -42,51 +38,51 @@ function EventCard({ event, participant, onDelete }) {
 
 export default function DayEvents({ date, events, participants, familyId, userId, supabase, onUpdate }) {
   const [adding, setAdding] = useState(false);
+  const [error, setError] = useState(null);
   const [title, setTitle] = useState("");
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
   const [participantId, setParticipantId] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const participantMap = {};
-  for (const p of participants) {
-    participantMap[p.id] = p;
-  }
-
+  const participantMap = toParticipantMap(participants);
   const activeParticipants = participants.filter((p) => p.is_active);
 
   const handleAdd = async () => {
     if (!title.trim()) return;
     setSaving(true);
-    try {
-      await createEvent(supabase, {
-        familyId,
-        participantId: participantId || null,
-        title: title.trim(),
-        date,
-        startTime,
-        endTime,
-        userId,
-      });
+    setError(null);
+
+    const result = await createEvent(supabase, {
+      familyId,
+      participantId: participantId || null,
+      title: title.trim(),
+      date,
+      startTime,
+      endTime,
+      userId,
+    });
+
+    if (result.error) {
+      setError(result.error);
+    } else {
       setTitle("");
       setStartTime("09:00");
       setEndTime("10:00");
       setParticipantId("");
       setAdding(false);
       onUpdate();
-    } catch (err) {
-      console.error("Failed to create event:", err);
-    } finally {
-      setSaving(false);
     }
+    setSaving(false);
   };
 
   const handleDelete = async (eventId) => {
-    try {
-      await deleteEvent(supabase, eventId);
+    const result = await deleteEvent(supabase, eventId);
+    if (result.error) {
+      setError(result.error);
+    } else {
+      setError(null);
       onUpdate();
-    } catch (err) {
-      console.error("Failed to delete event:", err);
     }
   };
 
@@ -147,6 +143,7 @@ export default function DayEvents({ date, events, participants, familyId, userId
               ))}
             </select>
           </div>
+          {error && <p className="text-red-400 text-xs">{error}</p>}
           <button
             onClick={handleAdd}
             disabled={saving || !title.trim()}
