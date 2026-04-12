@@ -62,15 +62,19 @@ export async function saveTimerState(supabase, { familyId, activeParticipantId, 
     version: newVersion,
   };
 
+  // Atomic version check + update via .eq("version", expectedVersion)
+  // If this fails, no subsequent writes happen — prevents partial updates
   if (existing) {
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from("timer_state")
       .update(statePayload)
       .eq("family_id", familyId)
       .eq("date", today)
-      .eq("version", expectedVersion);
+      .eq("version", expectedVersion)
+      .select("version")
+      .maybeSingle();
 
-    if (error) return { conflict: true };
+    if (error || !updated) return { conflict: true };
   } else {
     const { error } = await supabase
       .from("timer_state")
@@ -79,7 +83,7 @@ export async function saveTimerState(supabase, { familyId, activeParticipantId, 
     if (error) return { conflict: true };
   }
 
-  // Upsert timer_entries
+  // Version check passed — safe to write entries and sessions
   const entries = Object.entries(times).map(([participantId, timeMs]) => ({
     family_id: familyId,
     participant_id: participantId,
@@ -93,7 +97,6 @@ export async function saveTimerState(supabase, { familyId, activeParticipantId, 
       .upsert(entries, { onConflict: "family_id,participant_id,date" });
   }
 
-  // Close previous session
   if (previousParticipantId) {
     await supabase
       .from("timer_sessions")
@@ -103,7 +106,6 @@ export async function saveTimerState(supabase, { familyId, activeParticipantId, 
       .is("ended_at", null);
   }
 
-  // Open new session
   if (activeParticipantId) {
     await supabase
       .from("timer_sessions")
