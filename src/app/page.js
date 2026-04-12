@@ -17,9 +17,9 @@ function todayDate() {
 
 // ─── Onboarding screen ───
 function OnboardingScreen({ user, supabase, onComplete, onLogout }) {
-  const [mode, setMode] = useState(null); // "create" | "join"
+  const [mode, setMode] = useState(null);
   const [familyName, setFamilyName] = useState("");
-  const [role, setRole] = useState(null); // "mama" | "papa"
+  const [role, setRole] = useState(null);
   const [joinCode, setJoinCode] = useState("");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -30,7 +30,6 @@ function OnboardingScreen({ user, supabase, onComplete, onLogout }) {
     setLoading(true);
     setError(null);
 
-    // Check if user already has a family
     const { data: existing } = await supabase
       .from("family_members")
       .select("family_id")
@@ -38,7 +37,6 @@ function OnboardingScreen({ user, supabase, onComplete, onLogout }) {
       .maybeSingle();
 
     if (existing) {
-      // Already has a family, just reload
       window.location.reload();
       return;
     }
@@ -87,13 +85,12 @@ function OnboardingScreen({ user, supabase, onComplete, onLogout }) {
       return;
     }
 
-    // Check if role is already taken
     const { data: existing } = await supabase
       .from("family_members")
       .select("role")
       .eq("family_id", family.id)
       .eq("role", role)
-      .single();
+      .maybeSingle();
 
     if (existing) {
       setError(`Роль "${role === "mama" ? "Мама" : "Тато"}" вже зайнята в цій сім'ї`);
@@ -114,7 +111,6 @@ function OnboardingScreen({ user, supabase, onComplete, onLogout }) {
     onComplete(family.id);
   };
 
-  // Show invite code after creating
   if (createdCode) {
     return (
       <div className="flex flex-col items-center justify-center h-full px-6 bg-zinc-950 gap-6">
@@ -138,7 +134,6 @@ function OnboardingScreen({ user, supabase, onComplete, onLogout }) {
     );
   }
 
-  // Mode selection
   if (!mode) {
     return (
       <div className="flex flex-col items-center justify-center h-full px-6 bg-zinc-950 gap-6">
@@ -197,7 +192,6 @@ function OnboardingScreen({ user, supabase, onComplete, onLogout }) {
           />
         )}
 
-        {/* Role selection */}
         <div>
           <p className="text-zinc-400 text-sm mb-2">Ваша роль:</p>
           <div className="flex gap-3">
@@ -261,16 +255,19 @@ export default function Home() {
 
   const [user, setUser] = useState(null);
   const [familyId, setFamilyId] = useState(null);
-  const [hasFamily, setHasFamily] = useState(null); // null = loading, true/false
+  const [hasFamily, setHasFamily] = useState(null);
   const [activeParent, setActiveParent] = useState(null);
   const [mamaTime, setMamaTime] = useState(0);
   const [papaTime, setPapaTime] = useState(0);
   const [lastSwitchAt, setLastSwitchAt] = useState(null);
+  const [version, setVersion] = useState(0);
+  const [conflict, setConflict] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
 
   const intervalRef = useRef(null);
   const lastTickRef = useRef(null);
+  const versionRef = useRef(0);
 
   // Load user
   useEffect(() => {
@@ -321,6 +318,7 @@ export default function Home() {
         (payload) => {
           const row = payload.new;
           if (row) {
+            // Another device updated — sync state
             applyState(row);
           }
         }
@@ -339,7 +337,7 @@ export default function Home() {
       .select("*")
       .eq("family_id", fid)
       .eq("date", today)
-      .single();
+      .maybeSingle();
 
     if (data) {
       applyState(data);
@@ -350,6 +348,7 @@ export default function Home() {
     let mama = row.mama_time_ms || 0;
     let papa = row.papa_time_ms || 0;
 
+    // Calculate elapsed since last switch for running timer
     if (row.active_parent && row.last_switch_at) {
       const elapsed = Date.now() - new Date(row.last_switch_at).getTime();
       if (row.active_parent === "mama") mama += elapsed;
@@ -360,9 +359,12 @@ export default function Home() {
     setPapaTime(papa);
     setActiveParent(row.active_parent);
     setLastSwitchAt(row.last_switch_at);
+    setVersion(row.version || 0);
+    versionRef.current = row.version || 0;
+    setConflict(false);
   }
 
-  // Local tick
+  // Local tick — only updates display, doesn't save
   const tick = useCallback(() => {
     const now = Date.now();
     const delta = now - lastTickRef.current;
@@ -385,12 +387,52 @@ export default function Home() {
     };
   }, [activeParent, tick]);
 
+  // Save with optimistic locking (version check)
   async function saveState(newActive, newMamaTime, newPapaTime) {
     const today = todayDate();
     const now = new Date().toISOString();
+    const expectedVersion = versionRef.current;
+    const newVersion = expectedVersion + 1;
 
-    await supabase.from("timer_state").upsert(
-      {
+    // Try to find existing row
+    const { data: existing } = await supabase
+      .from("timer_state")
+      .select("version")
+      .eq("family_id", familyId)
+      .eq("date", today)
+      .maybeSingle();
+
+    if (existing && (existing.version || 0) !== expectedVersion) {
+      // Version mismatch — someone else changed it
+      setConflict(true);
+      await loadTimerState(familyId);
+      return false;
+    }
+
+    if (existing) {
+      // Update with version check
+      const { error } = await supabase
+        .from("timer_state")
+        .update({
+          active_parent: newActive,
+          mama_time_ms: newMamaTime,
+          papa_time_ms: newPapaTime,
+          last_switch_at: newActive ? now : null,
+          updated_at: now,
+          version: newVersion,
+        })
+        .eq("family_id", familyId)
+        .eq("date", today)
+        .eq("version", expectedVersion);
+
+      if (error) {
+        setConflict(true);
+        await loadTimerState(familyId);
+        return false;
+      }
+    } else {
+      // Insert new row for today
+      const { error } = await supabase.from("timer_state").insert({
         family_id: familyId,
         date: today,
         active_parent: newActive,
@@ -398,19 +440,31 @@ export default function Home() {
         papa_time_ms: newPapaTime,
         last_switch_at: newActive ? now : null,
         updated_at: now,
-      },
-      { onConflict: "family_id,date" }
-    );
+        version: newVersion,
+      });
+
+      if (error) {
+        setConflict(true);
+        await loadTimerState(familyId);
+        return false;
+      }
+    }
+
+    versionRef.current = newVersion;
+    setVersion(newVersion);
+    setConflict(false);
+    return true;
   }
 
-  function getAccumulatedTime() {
+  // Calculate base accumulated time (without current tick elapsed)
+  function getBaseTime() {
     let mama = mamaTime;
     let papa = papaTime;
 
     if (activeParent && lastSwitchAt) {
       const elapsed = Date.now() - new Date(lastSwitchAt).getTime();
-      if (activeParent === "mama") mama = mamaTime - elapsed;
-      else papa = papaTime - elapsed;
+      if (activeParent === "mama") mama -= elapsed;
+      else papa -= elapsed;
     }
 
     return { mama: Math.max(0, mama), papa: Math.max(0, papa) };
@@ -419,9 +473,10 @@ export default function Home() {
   const handleSwitch = async (parent) => {
     if (!familyId) return;
 
-    const accumulated = getAccumulatedTime();
-    let newMama = accumulated.mama;
-    let newPapa = accumulated.papa;
+    // Get base stored time + elapsed from active
+    const base = getBaseTime();
+    let newMama = base.mama;
+    let newPapa = base.papa;
 
     if (activeParent && lastSwitchAt) {
       const elapsed = Date.now() - new Date(lastSwitchAt).getTime();
@@ -431,11 +486,13 @@ export default function Home() {
 
     const newActive = activeParent === parent ? null : parent;
 
+    // Optimistic UI update
     setActiveParent(newActive);
     setMamaTime(newMama);
     setPapaTime(newPapa);
     setLastSwitchAt(newActive ? new Date().toISOString() : null);
 
+    // Save to DB with version check
     await saveState(newActive, newMama, newPapa);
   };
 
@@ -453,8 +510,7 @@ export default function Home() {
     window.location.href = "/login";
   };
 
-  const handleOnboardingComplete = async (fid) => {
-    // Reload family from DB
+  const handleOnboardingComplete = async () => {
     await loadFamily();
   };
 
@@ -467,7 +523,7 @@ export default function Home() {
     );
   }
 
-  // Onboarding — no family yet
+  // Onboarding
   if (hasFamily === false) {
     return (
       <OnboardingScreen
@@ -529,6 +585,20 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      {/* Conflict banner */}
+      {conflict && (
+        <div
+          className="flex items-center justify-between px-4 py-2 bg-amber-900/80 text-amber-200 text-sm cursor-pointer"
+          onClick={() => {
+            setConflict(false);
+            loadTimerState(familyId);
+          }}
+        >
+          <span>Хтось змінив таймер. Оновлено.</span>
+          <span className="text-amber-400 font-medium">OK</span>
+        </div>
+      )}
 
       {/* Timers area */}
       <div className="flex flex-col flex-1">
