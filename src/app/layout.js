@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata = {
   title: "YourTurn — Час з дитиною",
-  description: "Трекер часу батьків з дитиною",
+  description: "Трекер часу батьків з дитиною. Відстежуйте хто скільки проводить часу з дитиною.",
   manifest: "/manifest.json",
   icons: {
     icon: "/icon.svg",
@@ -24,6 +24,28 @@ export const metadata = {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "YourTurn",
+  },
+  openGraph: {
+    title: "YourTurn — Час з дитиною",
+    description: "Трекер часу батьків з дитиною. Відстежуйте хто скільки проводить часу з дитиною.",
+    url: "https://your-turn-three.vercel.app",
+    siteName: "YourTurn",
+    locale: "uk_UA",
+    type: "website",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "YourTurn — Час з дитиною",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "YourTurn — Час з дитиною",
+    description: "Трекер часу батьків з дитиною",
+    images: ["/og-image.png"],
   },
 };
 
