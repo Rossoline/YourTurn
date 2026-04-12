@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { loadTimerState, saveTimerState, subscribeToTimer } from "@/services/timerService";
+import { createThrottle } from "@/utils/throttle";
 
 function parseState(row) {
   let mama = row.mama_time_ms || 0;
@@ -32,6 +33,7 @@ export function useTimer(supabase, familyId) {
   const intervalRef = useRef(null);
   const lastTickRef = useRef(null);
   const versionRef = useRef(0);
+  const throttle = useMemo(() => createThrottle(500), []);
 
   // Apply state from DB row
   const applyState = useCallback((row) => {
@@ -118,33 +120,38 @@ export function useTimer(supabase, familyId) {
   const handleSwitch = async (parent) => {
     if (!familyId) return;
 
-    const base = getBaseTime();
-    let newMama = base.mama;
-    let newPapa = base.papa;
+    await throttle(async () => {
+      const base = getBaseTime();
+      let newMama = base.mama;
+      let newPapa = base.papa;
 
-    if (activeParent && lastSwitchAt) {
-      const elapsed = Date.now() - new Date(lastSwitchAt).getTime();
-      if (activeParent === "mama") newMama += elapsed;
-      else newPapa += elapsed;
-    }
+      if (activeParent && lastSwitchAt) {
+        const elapsed = Date.now() - new Date(lastSwitchAt).getTime();
+        if (activeParent === "mama") newMama += elapsed;
+        else newPapa += elapsed;
+      }
 
-    const newActive = activeParent === parent ? null : parent;
+      const newActive = activeParent === parent ? null : parent;
 
-    setActiveParent(newActive);
-    setMamaTime(newMama);
-    setPapaTime(newPapa);
-    setLastSwitchAt(newActive ? new Date().toISOString() : null);
+      setActiveParent(newActive);
+      setMamaTime(newMama);
+      setPapaTime(newPapa);
+      setLastSwitchAt(newActive ? new Date().toISOString() : null);
 
-    await save(newActive, newMama, newPapa);
+      await save(newActive, newMama, newPapa);
+    });
   };
 
   const handleReset = async () => {
     if (!familyId) return;
-    setActiveParent(null);
-    setMamaTime(0);
-    setPapaTime(0);
-    setLastSwitchAt(null);
-    await save(null, 0, 0);
+
+    await throttle(async () => {
+      setActiveParent(null);
+      setMamaTime(0);
+      setPapaTime(0);
+      setLastSwitchAt(null);
+      await save(null, 0, 0);
+    });
   };
 
   const dismissConflict = () => {

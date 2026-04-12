@@ -1,7 +1,26 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
+import { rateLimit } from "@/utils/rateLimit";
 
 export async function middleware(request) {
+  // Rate limiting by IP
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    || request.headers.get("x-real-ip")
+    || "unknown";
+
+  const { allowed, remaining } = rateLimit(ip);
+
+  if (!allowed) {
+    return new NextResponse("Too Many Requests", {
+      status: 429,
+      headers: {
+        "Retry-After": "60",
+        "X-RateLimit-Remaining": "0",
+      },
+    });
+  }
+
+  // Auth session refresh
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -29,7 +48,6 @@ export async function middleware(request) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Redirect unauthenticated users to login (except auth pages)
   if (
     !user &&
     !request.nextUrl.pathname.startsWith("/login") &&
@@ -41,7 +59,6 @@ export async function middleware(request) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users away from auth pages
   if (
     user &&
     (request.nextUrl.pathname.startsWith("/login") ||
@@ -52,6 +69,7 @@ export async function middleware(request) {
     return NextResponse.redirect(url);
   }
 
+  supabaseResponse.headers.set("X-RateLimit-Remaining", String(remaining));
   return supabaseResponse;
 }
 
