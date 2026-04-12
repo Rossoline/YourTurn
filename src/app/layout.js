@@ -15,6 +15,16 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "YourTurn — Час з дитиною",
   description: "Трекер часу батьків з дитиною",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon-192.png",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "YourTurn",
+  },
 };
 
 export const viewport = {
@@ -30,6 +40,10 @@ export default function RootLayout({ children }) {
       lang="uk"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <meta name="theme-color" content="#09090b" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+      </head>
       <body className="h-full flex flex-col bg-zinc-950 text-white overflow-hidden">
         <Providers>{children}</Providers>
       </body>
