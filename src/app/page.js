@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { getUserFamily, getFamilyInviteCode } from "@/services/familyService";
 import { useTimer } from "@/hooks/useTimer";
 import { todayDate } from "@/utils/format";
+import Link from "next/link";
 import OnboardingScreen from "@/components/OnboardingScreen";
 import TimerDisplay from "@/components/TimerDisplay";
 import ControlPanel from "@/components/ControlPanel";
@@ -80,6 +81,13 @@ export default function Home() {
           </button>
           {showMenu && (
             <div className="absolute right-0 top-full mt-1 bg-zinc-800 rounded-xl border border-zinc-700 py-1 min-w-[180px] z-50">
+              <Link
+                href="/stats"
+                onClick={() => setShowMenu(false)}
+                className="block w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700"
+              >
+                Статистика
+              </Link>
               <button
                 onClick={async () => {
                   const code = await getFamilyInviteCode(supabase, familyId);
