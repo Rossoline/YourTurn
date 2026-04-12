@@ -73,25 +73,6 @@ export function useTimer(supabase, familyId) {
     return base;
   }
 
-  async function save(newActiveId, newTimes, previousId = null) {
-    const result = await saveTimerState(supabase, {
-      familyId,
-      activeParticipantId: newActiveId,
-      previousParticipantId: previousId,
-      times: newTimes,
-      expectedVersion: versionRef.current,
-    });
-
-    if (result.conflict) {
-      setConflict(true);
-      await reload();
-      return;
-    }
-
-    versionRef.current = result.version;
-    setConflict(false);
-  }
-
   const handleSwitch = async (participantId) => {
     if (!familyId) return;
 
@@ -107,11 +88,33 @@ export function useTimer(supabase, familyId) {
       const newActiveId = activeParticipantId === participantId ? null : participantId;
       const previousId = activeParticipantId;
 
+      // Save previous state for rollback
+      const prevState = { activeParticipantId, times: { ...times }, lastSwitchAt };
+
       setActiveParticipantId(newActiveId);
       setTimes(base);
       setLastSwitchAt(newActiveId ? new Date().toISOString() : null);
 
-      await save(newActiveId, base, previousId);
+      const result = await saveTimerState(supabase, {
+        familyId,
+        activeParticipantId: newActiveId,
+        previousParticipantId: previousId,
+        times: base,
+        expectedVersion: versionRef.current,
+      });
+
+      if (result.conflict) {
+        // Rollback optimistic update, then reload server state
+        setActiveParticipantId(prevState.activeParticipantId);
+        setTimes(prevState.times);
+        setLastSwitchAt(prevState.lastSwitchAt);
+        setConflict(true);
+        await reload();
+        return;
+      }
+
+      versionRef.current = result.version;
+      setConflict(false);
     });
   };
 
@@ -120,10 +123,31 @@ export function useTimer(supabase, familyId) {
 
     await throttle(async () => {
       const previousId = activeParticipantId;
+      const prevState = { activeParticipantId, times: { ...times }, lastSwitchAt };
+
       setActiveParticipantId(null);
       setTimes({});
       setLastSwitchAt(null);
-      await save(null, {}, previousId);
+
+      const result = await saveTimerState(supabase, {
+        familyId,
+        activeParticipantId: null,
+        previousParticipantId: previousId,
+        times: {},
+        expectedVersion: versionRef.current,
+      });
+
+      if (result.conflict) {
+        setActiveParticipantId(prevState.activeParticipantId);
+        setTimes(prevState.times);
+        setLastSwitchAt(prevState.lastSwitchAt);
+        setConflict(true);
+        await reload();
+        return;
+      }
+
+      versionRef.current = result.version;
+      setConflict(false);
     });
   };
 

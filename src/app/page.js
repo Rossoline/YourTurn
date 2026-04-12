@@ -14,9 +14,11 @@ import ControlPanel from "@/components/ControlPanel";
 import ParticipantManager from "@/components/ParticipantManager";
 import BottomTabs from "@/components/BottomTabs";
 import CalendarView from "@/components/CalendarView";
+import { useToast } from "@/components/Toast";
 
 export default function Home() {
   const supabase = createClient();
+  const toast = useToast();
 
   const [user, setUser] = useState(null);
   const [familyId, setFamilyId] = useState(null);
@@ -56,6 +58,7 @@ export default function Home() {
         }
       } catch (err) {
         console.error("Failed to load family:", err);
+        toast?.("Не вдалося завантажити дані", "error");
         setHasFamily(false);
       } finally {
         setLoading(false);

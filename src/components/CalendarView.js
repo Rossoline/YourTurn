@@ -4,8 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import CalendarMonth from "@/components/CalendarMonth";
 import DayEvents from "@/components/DayEvents";
 import { getEventsForMonth, getEventsForDate } from "@/services/calendarService";
+import { useToast } from "@/components/Toast";
 
 export default function CalendarView({ supabase, familyId, userId, participants }) {
+  const toast = useToast();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -20,6 +22,7 @@ export default function CalendarView({ supabase, familyId, userId, participants 
       setMonthEvents(data);
     } catch (err) {
       console.error("Failed to load month events:", err);
+      toast?.("Не вдалося завантажити події", "error");
     }
   }, [supabase, familyId, year, month]);
 
@@ -34,6 +37,7 @@ export default function CalendarView({ supabase, familyId, userId, participants 
       setDayEvents(data);
     } catch (err) {
       console.error("Failed to load day events:", err);
+      toast?.("Не вдалося завантажити події дня", "error");
     }
   }, [supabase, familyId, selectedDate]);
 

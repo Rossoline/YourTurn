@@ -60,9 +60,6 @@ export async function saveTimerState(supabase, { familyId, activeParticipantId, 
     last_switch_at: activeParticipantId ? now : null,
     updated_at: now,
     version: newVersion,
-    active_parent: null,
-    mama_time_ms: 0,
-    papa_time_ms: 0,
   };
 
   if (existing) {

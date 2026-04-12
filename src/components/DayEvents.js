@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { formatDateLabel, toParticipantMap } from "@/utils/format";
 import { getColor } from "@/utils/colors";
+import { useToast } from "@/components/Toast";
 import { createEvent, deleteEvent } from "@/services/calendarService";
 
 function EventCard({ event, participant, onDelete }) {
@@ -37,6 +38,7 @@ function EventCard({ event, participant, onDelete }) {
 }
 
 export default function DayEvents({ date, events, participants, familyId, userId, supabase, onUpdate }) {
+  const toast = useToast();
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState(null);
   const [title, setTitle] = useState("");
@@ -65,12 +67,14 @@ export default function DayEvents({ date, events, participants, familyId, userId
 
     if (result.error) {
       setError(result.error);
+      toast?.(result.error, "error");
     } else {
       setTitle("");
       setStartTime("09:00");
       setEndTime("10:00");
       setParticipantId("");
       setAdding(false);
+      toast?.("Подію створено", "success");
       onUpdate();
     }
     setSaving(false);
@@ -79,9 +83,10 @@ export default function DayEvents({ date, events, participants, familyId, userId
   const handleDelete = async (eventId) => {
     const result = await deleteEvent(supabase, eventId);
     if (result.error) {
-      setError(result.error);
+      toast?.(result.error, "error");
     } else {
       setError(null);
+      toast?.("Подію видалено", "success");
       onUpdate();
     }
   };
@@ -143,10 +148,13 @@ export default function DayEvents({ date, events, participants, familyId, userId
               ))}
             </select>
           </div>
+          {startTime >= endTime && (
+            <p className="text-amber-400 text-xs">Час початку має бути раніше за кінець</p>
+          )}
           {error && <p className="text-red-400 text-xs">{error}</p>}
           <button
             onClick={handleAdd}
-            disabled={saving || !title.trim()}
+            disabled={saving || !title.trim() || startTime >= endTime}
             className="w-full bg-white text-black text-sm font-semibold rounded-lg py-2.5 hover:bg-zinc-200 disabled:opacity-50 transition-colors"
           >
             {saving ? "Збереження..." : "Зберегти"}
