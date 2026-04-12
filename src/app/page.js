@@ -12,6 +12,8 @@ import OnboardingScreen from "@/components/OnboardingScreen";
 import TimerDisplay from "@/components/TimerDisplay";
 import ControlPanel from "@/components/ControlPanel";
 import ParticipantManager from "@/components/ParticipantManager";
+import BottomTabs from "@/components/BottomTabs";
+import CalendarView from "@/components/CalendarView";
 
 export default function Home() {
   const supabase = createClient();
@@ -23,6 +25,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
   const [showManage, setShowManage] = useState(false);
+  const [activeTab, setActiveTab] = useState("timer");
 
   const timer = useTimer(supabase, familyId);
 
@@ -183,50 +186,65 @@ export default function Home() {
         </div>
       )}
 
-      {/* Timers */}
-      <div className="flex flex-col flex-1">
-        {activeParticipants.map((p, i) => {
-          const time = timer.getTime(p.id);
-          const percent = totalTime > 0 ? (time / totalTime) * 100 : null;
-
-          return (
-            <TimerDisplay
-              key={p.id}
-              name={p.name}
-              time={time}
-              percent={percent}
-              isActive={timer.activeParticipantId === p.id}
-              colorKey={p.color}
-              startedAt={timer.activeParticipantId === p.id ? timer.lastSwitchAt : null}
-            />
-          );
-        })}
-
-        {/* Progress bar */}
-        {totalTime > 0 && (
-          <div className="flex h-1.5 w-full">
+      {/* Tab content */}
+      {activeTab === "timer" ? (
+        <>
+          {/* Timers */}
+          <div className="flex flex-col flex-1">
             {activeParticipants.map((p) => {
               const time = timer.getTime(p.id);
-              const percent = totalTime > 0 ? (time / totalTime) * 100 : 0;
-              const c = getColor(p.color);
+              const percent = totalTime > 0 ? (time / totalTime) * 100 : null;
+
               return (
-                <div
+                <TimerDisplay
                   key={p.id}
-                  className={`${c.bar} transition-all duration-500`}
-                  style={{ width: `${percent}%` }}
+                  name={p.name}
+                  time={time}
+                  percent={percent}
+                  isActive={timer.activeParticipantId === p.id}
+                  colorKey={p.color}
+                  startedAt={timer.activeParticipantId === p.id ? timer.lastSwitchAt : null}
                 />
               );
             })}
-          </div>
-        )}
-      </div>
 
-      <ControlPanel
-        participants={activeParticipants}
-        activeParticipantId={timer.activeParticipantId}
-        onSwitch={timer.handleSwitch}
-        onReset={timer.handleReset}
-      />
+            {/* Progress bar */}
+            {totalTime > 0 && (
+              <div className="flex h-1.5 w-full">
+                {activeParticipants.map((p) => {
+                  const time = timer.getTime(p.id);
+                  const percent = totalTime > 0 ? (time / totalTime) * 100 : 0;
+                  const c = getColor(p.color);
+                  return (
+                    <div
+                      key={p.id}
+                      className={`${c.bar} transition-all duration-500`}
+                      style={{ width: `${percent}%` }}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <ControlPanel
+            participants={activeParticipants}
+            activeParticipantId={timer.activeParticipantId}
+            onSwitch={timer.handleSwitch}
+            onReset={timer.handleReset}
+          />
+        </>
+      ) : (
+        <CalendarView
+          supabase={supabase}
+          familyId={familyId}
+          userId={user?.id}
+          participants={participants}
+        />
+      )}
+
+      {/* Bottom tabs */}
+      <BottomTabs active={activeTab} onChange={setActiveTab} />
     </div>
   );
 }
