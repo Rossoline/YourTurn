@@ -4,29 +4,9 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { loadTimerState, saveTimerState, subscribeToTimer } from "@/services/timerService";
 import { createThrottle } from "@/utils/throttle";
 
-function parseState(row) {
-  let mama = row.mama_time_ms || 0;
-  let papa = row.papa_time_ms || 0;
-
-  if (row.active_parent && row.last_switch_at) {
-    const elapsed = Date.now() - new Date(row.last_switch_at).getTime();
-    if (row.active_parent === "mama") mama += elapsed;
-    else papa += elapsed;
-  }
-
-  return {
-    mamaTime: mama,
-    papaTime: papa,
-    activeParent: row.active_parent,
-    lastSwitchAt: row.last_switch_at,
-    version: row.version || 0,
-  };
-}
-
 export function useTimer(supabase, familyId) {
-  const [activeParent, setActiveParent] = useState(null);
-  const [mamaTime, setMamaTime] = useState(0);
-  const [papaTime, setPapaTime] = useState(0);
+  const [activeParticipantId, setActiveParticipantId] = useState(null);
+  const [times, setTimes] = useState({}); // { participantId: ms }
   const [lastSwitchAt, setLastSwitchAt] = useState(null);
   const [conflict, setConflict] = useState(false);
 
@@ -35,81 +15,75 @@ export function useTimer(supabase, familyId) {
   const versionRef = useRef(0);
   const throttle = useMemo(() => createThrottle(500), []);
 
-  // Apply state from DB row
-  const applyState = useCallback((row) => {
-    const state = parseState(row);
-    setMamaTime(state.mamaTime);
-    setPapaTime(state.papaTime);
-    setActiveParent(state.activeParent);
-    setLastSwitchAt(state.lastSwitchAt);
-    versionRef.current = state.version;
+  const reload = useCallback(async () => {
+    if (!familyId) return;
+    const data = await loadTimerState(supabase, familyId);
+    setTimes(data.times);
+    setActiveParticipantId(data.activeParticipantId);
+    setLastSwitchAt(data.lastSwitchAt);
+    versionRef.current = data.version;
     setConflict(false);
-  }, []);
+  }, [familyId, supabase]);
 
   // Load initial state
   useEffect(() => {
-    if (!familyId) return;
-    loadTimerState(supabase, familyId).then((data) => {
-      if (data) applyState(data);
-    });
-  }, [familyId, supabase, applyState]);
+    reload();
+  }, [reload]);
 
-  // Real-time subscription
+  // Real-time subscription — reload on any change
   useEffect(() => {
     if (!familyId) return;
-    return subscribeToTimer(supabase, familyId, applyState);
-  }, [familyId, supabase, applyState]);
+    return subscribeToTimer(supabase, familyId, reload);
+  }, [familyId, supabase, reload]);
 
   // Local tick
   const tick = useCallback(() => {
+    if (!activeParticipantId) return;
+
     const now = Date.now();
     const delta = now - lastTickRef.current;
     lastTickRef.current = now;
 
-    if (activeParent === "mama") {
-      setMamaTime((prev) => prev + delta);
-    } else if (activeParent === "papa") {
-      setPapaTime((prev) => prev + delta);
-    }
-  }, [activeParent]);
+    setTimes((prev) => ({
+      ...prev,
+      [activeParticipantId]: (prev[activeParticipantId] || 0) + delta,
+    }));
+  }, [activeParticipantId]);
 
   useEffect(() => {
-    if (activeParent) {
+    if (activeParticipantId) {
       lastTickRef.current = Date.now();
       intervalRef.current = setInterval(tick, 1000);
     }
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [activeParent, tick]);
+  }, [activeParticipantId, tick]);
 
-  // Get base time without current tick elapsed
-  function getBaseTime() {
-    let mama = mamaTime;
-    let papa = papaTime;
+  // Get base times without current tick elapsed
+  function getBaseTimes() {
+    const base = { ...times };
 
-    if (activeParent && lastSwitchAt) {
+    if (activeParticipantId && lastSwitchAt) {
       const elapsed = Date.now() - new Date(lastSwitchAt).getTime();
-      if (activeParent === "mama") mama -= elapsed;
-      else papa -= elapsed;
+      base[activeParticipantId] = (base[activeParticipantId] || 0) - elapsed;
+      if (base[activeParticipantId] < 0) base[activeParticipantId] = 0;
     }
 
-    return { mama: Math.max(0, mama), papa: Math.max(0, papa) };
+    return base;
   }
 
-  async function save(newActive, newMama, newPapa) {
+  async function save(newActiveId, newTimes) {
     const result = await saveTimerState(supabase, {
       familyId,
-      activeParent: newActive,
-      mamaTime: newMama,
-      papaTime: newPapa,
+      activeParticipantId: newActiveId,
+      times: newTimes,
       expectedVersion: versionRef.current,
     });
 
     if (result.conflict) {
       setConflict(true);
-      const data = await loadTimerState(supabase, familyId);
-      if (data) applyState(data);
+      await reload();
       return;
     }
 
@@ -117,28 +91,25 @@ export function useTimer(supabase, familyId) {
     setConflict(false);
   }
 
-  const handleSwitch = async (parent) => {
+  const handleSwitch = async (participantId) => {
     if (!familyId) return;
 
     await throttle(async () => {
-      const base = getBaseTime();
-      let newMama = base.mama;
-      let newPapa = base.papa;
+      const base = getBaseTimes();
 
-      if (activeParent && lastSwitchAt) {
+      // Add elapsed from currently active participant
+      if (activeParticipantId && lastSwitchAt) {
         const elapsed = Date.now() - new Date(lastSwitchAt).getTime();
-        if (activeParent === "mama") newMama += elapsed;
-        else newPapa += elapsed;
+        base[activeParticipantId] = (base[activeParticipantId] || 0) + elapsed;
       }
 
-      const newActive = activeParent === parent ? null : parent;
+      const newActiveId = activeParticipantId === participantId ? null : participantId;
 
-      setActiveParent(newActive);
-      setMamaTime(newMama);
-      setPapaTime(newPapa);
-      setLastSwitchAt(newActive ? new Date().toISOString() : null);
+      setActiveParticipantId(newActiveId);
+      setTimes(base);
+      setLastSwitchAt(newActiveId ? new Date().toISOString() : null);
 
-      await save(newActive, newMama, newPapa);
+      await save(newActiveId, base);
     });
   };
 
@@ -146,28 +117,28 @@ export function useTimer(supabase, familyId) {
     if (!familyId) return;
 
     await throttle(async () => {
-      setActiveParent(null);
-      setMamaTime(0);
-      setPapaTime(0);
+      setActiveParticipantId(null);
+      setTimes({});
       setLastSwitchAt(null);
-      await save(null, 0, 0);
+      await save(null, {});
     });
   };
 
   const dismissConflict = () => {
     setConflict(false);
-    if (familyId) {
-      loadTimerState(supabase, familyId).then((data) => {
-        if (data) applyState(data);
-      });
-    }
+    reload();
   };
 
+  const getTime = (participantId) => times[participantId] || 0;
+
+  const totalTime = Object.values(times).reduce((s, t) => s + t, 0);
+
   return {
-    activeParent,
-    mamaTime,
-    papaTime,
+    activeParticipantId,
+    times,
+    totalTime,
     conflict,
+    getTime,
     handleSwitch,
     handleReset,
     dismissConflict,

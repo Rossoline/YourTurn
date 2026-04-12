@@ -3,9 +3,11 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getUserFamily } from "@/services/familyService";
+import { getParticipants } from "@/services/participantService";
 import { getStats, aggregateStats } from "@/services/statsService";
 import DayBar from "@/components/DayBar";
 import StatsSummary from "@/components/StatsSummary";
+import { getColor } from "@/utils/colors";
 import Link from "next/link";
 
 const PERIODS = [
@@ -18,6 +20,7 @@ export default function StatsPage() {
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState([]);
+  const [participants, setParticipants] = useState([]);
   const [period, setPeriod] = useState(7);
 
   useEffect(() => {
@@ -29,8 +32,13 @@ export default function StatsPage() {
       const member = await getUserFamily(supabase, user.id);
       if (!member) return;
 
-      const data = await getStats(supabase, member.family_id, period);
+      const [data, parts] = await Promise.all([
+        getStats(supabase, member.family_id, period),
+        getParticipants(supabase, member.family_id),
+      ]);
+
       setStats(data);
+      setParticipants(parts);
       setLoading(false);
     }
 
@@ -45,7 +53,7 @@ export default function StatsPage() {
     );
   }
 
-  const summary = aggregateStats(stats);
+  const summary = aggregateStats(stats, participants);
   const maxTotal = Math.max(...stats.map((d) => d.total), 1);
 
   return (
@@ -78,10 +86,16 @@ export default function StatsPage() {
         </div>
 
         {/* Summary */}
-        <StatsSummary {...summary} />
+        {summary.participantStats.length > 0 ? (
+          <StatsSummary {...summary} />
+        ) : (
+          <div className="text-center text-zinc-500 py-4">
+            Немає даних за цей період
+          </div>
+        )}
 
         {/* Chart */}
-        {stats.length > 0 ? (
+        {stats.length > 0 && (
           <div>
             <h2 className="text-zinc-400 text-sm font-medium mb-3">По днях</h2>
             <div className="flex gap-1">
@@ -89,27 +103,25 @@ export default function StatsPage() {
                 <DayBar
                   key={day.date}
                   date={day.date}
-                  mama={day.mama}
-                  papa={day.papa}
+                  participants={day.participants}
+                  total={day.total}
                   maxTotal={maxTotal}
+                  allParticipants={participants}
                 />
               ))}
             </div>
             {/* Legend */}
-            <div className="flex justify-center gap-6 mt-4">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-sm bg-pink-400/80" />
-                <span className="text-zinc-500 text-xs">Мама</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-sm bg-blue-400/80" />
-                <span className="text-zinc-500 text-xs">Тато</span>
-              </div>
+            <div className="flex flex-wrap justify-center gap-4 mt-4">
+              {participants.map((p) => {
+                const c = getColor(p.color);
+                return (
+                  <div key={p.id} className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-sm ${c.bar}`} />
+                    <span className="text-zinc-500 text-xs">{p.name}</span>
+                  </div>
+                );
+              })}
             </div>
-          </div>
-        ) : (
-          <div className="text-center text-zinc-500 py-8">
-            Немає даних за цей період
           </div>
         )}
       </div>

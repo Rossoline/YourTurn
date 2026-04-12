@@ -1,14 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getUserFamily, getFamilyInviteCode } from "@/services/familyService";
+import { getParticipants } from "@/services/participantService";
 import { useTimer } from "@/hooks/useTimer";
 import { todayDate } from "@/utils/format";
+import { getColor } from "@/utils/colors";
 import Link from "next/link";
 import OnboardingScreen from "@/components/OnboardingScreen";
 import TimerDisplay from "@/components/TimerDisplay";
 import ControlPanel from "@/components/ControlPanel";
+import ParticipantManager from "@/components/ParticipantManager";
 
 export default function Home() {
   const supabase = createClient();
@@ -16,10 +19,14 @@ export default function Home() {
   const [user, setUser] = useState(null);
   const [familyId, setFamilyId] = useState(null);
   const [hasFamily, setHasFamily] = useState(null);
+  const [participants, setParticipants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
+  const [showManage, setShowManage] = useState(false);
 
   const timer = useTimer(supabase, familyId);
+
+  const activeParticipants = participants.filter((p) => p.is_active);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
@@ -28,16 +35,24 @@ export default function Home() {
   useEffect(() => {
     if (!user) return;
 
-    getUserFamily(supabase, user.id).then((member) => {
+    getUserFamily(supabase, user.id).then(async (member) => {
       if (member) {
         setFamilyId(member.family_id);
         setHasFamily(true);
+        const p = await getParticipants(supabase, member.family_id);
+        setParticipants(p);
       } else {
         setHasFamily(false);
       }
       setLoading(false);
     });
   }, [user]);
+
+  const reloadParticipants = useCallback(async () => {
+    if (!familyId) return;
+    const p = await getParticipants(supabase, familyId);
+    setParticipants(p);
+  }, [familyId, supabase]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -63,9 +78,27 @@ export default function Home() {
     );
   }
 
-  const totalTime = timer.mamaTime + timer.papaTime;
-  const mamaPercent = totalTime > 0 ? (timer.mamaTime / totalTime) * 100 : 50;
-  const papaPercent = totalTime > 0 ? (timer.papaTime / totalTime) * 100 : 50;
+  // No participants yet — show manage screen
+  if (activeParticipants.length === 0 && !showManage) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full px-6 bg-zinc-950 gap-6">
+        <h1 className="text-2xl font-bold">Додайте учасників</h1>
+        <p className="text-zinc-400 text-center max-w-xs">
+          Додайте тих, хто проводить час з дитиною — батьків, бабусю, няню тощо
+        </p>
+        <div className="w-full max-w-sm">
+          <ParticipantManager
+            supabase={supabase}
+            familyId={familyId}
+            participants={participants}
+            onUpdate={reloadParticipants}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  const totalTime = timer.totalTime;
 
   return (
     <div className="flex flex-col h-full select-none">
@@ -88,6 +121,12 @@ export default function Home() {
               >
                 Статистика
               </Link>
+              <button
+                onClick={() => { setShowManage(!showManage); setShowMenu(false); }}
+                className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700"
+              >
+                Учасники
+              </button>
               <button
                 onClick={async () => {
                   const code = await getFamilyInviteCode(supabase, familyId);
@@ -123,32 +162,67 @@ export default function Home() {
         </div>
       )}
 
+      {/* Manage participants panel */}
+      {showManage && (
+        <div className="px-4 py-4 bg-zinc-900/80 border-b border-zinc-800 overflow-y-auto max-h-[50vh]">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-zinc-300">Учасники</h2>
+            <button
+              onClick={() => setShowManage(false)}
+              className="text-zinc-500 text-xs hover:text-zinc-300"
+            >
+              Закрити
+            </button>
+          </div>
+          <ParticipantManager
+            supabase={supabase}
+            familyId={familyId}
+            participants={participants}
+            onUpdate={reloadParticipants}
+          />
+        </div>
+      )}
+
       {/* Timers */}
       <div className="flex flex-col flex-1">
-        <TimerDisplay
-          label="Мама"
-          time={timer.mamaTime}
-          percent={totalTime > 0 ? mamaPercent : null}
-          isActive={timer.activeParent === "mama"}
-          color="pink"
-        />
+        {activeParticipants.map((p, i) => {
+          const time = timer.getTime(p.id);
+          const percent = totalTime > 0 ? (time / totalTime) * 100 : null;
 
-        <div className="flex h-1.5 w-full">
-          <div className="bg-pink-400 transition-all duration-500" style={{ width: `${mamaPercent}%` }} />
-          <div className="bg-blue-400 transition-all duration-500" style={{ width: `${papaPercent}%` }} />
-        </div>
+          return (
+            <TimerDisplay
+              key={p.id}
+              name={p.name}
+              time={time}
+              percent={percent}
+              isActive={timer.activeParticipantId === p.id}
+              colorKey={p.color}
+            />
+          );
+        })}
 
-        <TimerDisplay
-          label="Тато"
-          time={timer.papaTime}
-          percent={totalTime > 0 ? papaPercent : null}
-          isActive={timer.activeParent === "papa"}
-          color="blue"
-        />
+        {/* Progress bar */}
+        {totalTime > 0 && (
+          <div className="flex h-1.5 w-full">
+            {activeParticipants.map((p) => {
+              const time = timer.getTime(p.id);
+              const percent = totalTime > 0 ? (time / totalTime) * 100 : 0;
+              const c = getColor(p.color);
+              return (
+                <div
+                  key={p.id}
+                  className={`${c.bar} transition-all duration-500`}
+                  style={{ width: `${percent}%` }}
+                />
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <ControlPanel
-        activeParent={timer.activeParent}
+        participants={activeParticipants}
+        activeParticipantId={timer.activeParticipantId}
         onSwitch={timer.handleSwitch}
         onReset={timer.handleReset}
       />

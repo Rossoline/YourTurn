@@ -1,50 +1,50 @@
 "use client";
 
 import { formatTime } from "@/utils/format";
+import { getColor } from "@/utils/colors";
 
-export default function StatsSummary({ totalMama, totalPapa, total, mamaPercent, papaPercent }) {
+export default function StatsSummary({ participantStats, grandTotal }) {
   return (
     <div className="flex flex-col gap-4">
       {/* Progress bar */}
       <div className="flex h-3 w-full rounded-full overflow-hidden">
-        <div
-          className="bg-pink-400 transition-all duration-500"
-          style={{ width: `${mamaPercent}%` }}
-        />
-        <div
-          className="bg-blue-400 transition-all duration-500"
-          style={{ width: `${papaPercent}%` }}
-        />
+        {participantStats.map((p) => {
+          const c = getColor(p.color);
+          return (
+            <div
+              key={p.id}
+              className={`${c.bar} transition-all duration-500`}
+              style={{ width: `${p.percent}%` }}
+            />
+          );
+        })}
       </div>
 
-      {/* Labels */}
-      <div className="flex justify-between">
-        <div className="flex flex-col items-start">
-          <span className="text-pink-400 text-sm font-medium">Мама</span>
-          <span className="text-white text-lg font-bold font-mono">
-            {formatTime(totalMama)}
-          </span>
-          <span className="text-pink-400/60 text-xs">
-            {Math.round(mamaPercent)}%
-          </span>
-        </div>
+      {/* Participant stats */}
+      <div className="flex flex-wrap gap-4 justify-between">
+        {participantStats.map((p) => {
+          const c = getColor(p.color);
+          return (
+            <div key={p.id} className="flex flex-col items-center min-w-[70px]">
+              <div className="flex items-center gap-1.5 mb-1">
+                <div className={`w-2 h-2 rounded-full ${c.dot}`} />
+                <span className={`${c.textMuted} text-sm font-medium`}>{p.name}</span>
+              </div>
+              <span className="text-white text-lg font-bold font-mono">
+                {formatTime(p.time)}
+              </span>
+              <span className={`${c.percentText} text-xs`}>
+                {Math.round(p.percent)}%
+              </span>
+            </div>
+          );
+        })}
+      </div>
 
-        <div className="flex flex-col items-center">
-          <span className="text-zinc-400 text-sm font-medium">Разом</span>
-          <span className="text-zinc-300 text-lg font-bold font-mono">
-            {formatTime(total)}
-          </span>
-        </div>
-
-        <div className="flex flex-col items-end">
-          <span className="text-blue-400 text-sm font-medium">Тато</span>
-          <span className="text-white text-lg font-bold font-mono">
-            {formatTime(totalPapa)}
-          </span>
-          <span className="text-blue-400/60 text-xs">
-            {Math.round(papaPercent)}%
-          </span>
-        </div>
+      {/* Grand total */}
+      <div className="text-center pt-2 border-t border-zinc-800">
+        <span className="text-zinc-500 text-sm">Разом: </span>
+        <span className="text-zinc-300 font-bold font-mono">{formatTime(grandTotal)}</span>
       </div>
     </div>
   );
