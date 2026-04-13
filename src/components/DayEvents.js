@@ -25,7 +25,8 @@ function EventCard({ event, participant, onEdit, onDelete }) {
       </button>
       <button
         onClick={() => onDelete(event.id)}
-        className="text-zinc-600 hover:text-red-400 text-xs mt-0.5 shrink-0"
+        aria-label="Видалити подію"
+        className="text-zinc-600 hover:text-red-400 text-sm shrink-0 w-10 h-10 flex items-center justify-center -mr-2"
       >
         ✕
       </button>

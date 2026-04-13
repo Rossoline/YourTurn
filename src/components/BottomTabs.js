@@ -7,12 +7,15 @@ export default function BottomTabs({ active, onChange }) {
   ];
 
   return (
-    <div className="flex border-t border-zinc-800 bg-zinc-900">
+    <div role="tablist" className="flex border-t border-zinc-800 bg-zinc-900">
       {tabs.map((tab) => (
         <button
           key={tab.key}
+          role="tab"
+          aria-selected={active === tab.key}
+          aria-label={tab.label}
           onClick={() => onChange(tab.key)}
-          className={`flex-1 flex flex-col items-center py-2.5 gap-0.5 transition-colors ${
+          className={`flex-1 flex flex-col items-center py-2.5 gap-0.5 min-h-[48px] transition-colors ${
             active === tab.key
               ? "text-white"
               : "text-zinc-500 hover:text-zinc-300"

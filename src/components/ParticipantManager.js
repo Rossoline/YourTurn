@@ -14,6 +14,7 @@ export default function ParticipantManager({ supabase, familyId, participants, o
   const [editId, setEditId] = useState(null);
   const [editName, setEditName] = useState("");
   const [editColor, setEditColor] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   const handleAdd = async () => {
     if (!name.trim()) return;
@@ -59,9 +60,13 @@ export default function ParticipantManager({ supabase, familyId, participants, o
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("Видалити учасника?")) return;
+    if (confirmDeleteId !== id) {
+      setConfirmDeleteId(id);
+      return;
+    }
     await deleteParticipant(supabase, id);
     setEditId(null);
+    setConfirmDeleteId(null);
     onUpdate();
   };
 
@@ -101,12 +106,16 @@ export default function ParticipantManager({ supabase, familyId, participants, o
                 </button>
                 <button
                   onClick={() => handleDelete(p.id)}
-                  className="px-4 py-2 rounded-lg bg-red-900/60 text-red-300 text-sm hover:bg-red-800/60"
+                  className={`px-4 py-2 rounded-lg text-sm ${
+                    confirmDeleteId === p.id
+                      ? "bg-red-600 text-white hover:bg-red-500"
+                      : "bg-red-900/60 text-red-300 hover:bg-red-800/60"
+                  }`}
                 >
-                  Видалити
+                  {confirmDeleteId === p.id ? "Точно видалити?" : "Видалити"}
                 </button>
                 <button
-                  onClick={() => setEditId(null)}
+                  onClick={() => { setEditId(null); setConfirmDeleteId(null); }}
                   className="px-4 py-2 rounded-lg bg-zinc-700 text-zinc-300 text-sm hover:bg-zinc-600"
                 >
                   Скасувати
