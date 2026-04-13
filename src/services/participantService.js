@@ -47,6 +47,13 @@ export async function toggleParticipant(supabase, id, isActive) {
 }
 
 export async function deleteParticipant(supabase, id) {
+  // Clean up related data before deleting
+  await Promise.all([
+    supabase.from("timer_entries").delete().eq("participant_id", id),
+    supabase.from("timer_sessions").delete().eq("participant_id", id),
+    supabase.from("calendar_events").delete().eq("participant_id", id),
+  ]);
+
   const { error } = await supabase
     .from("participants")
     .delete()

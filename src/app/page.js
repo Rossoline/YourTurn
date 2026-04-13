@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getUserFamily, getFamilyInviteCode } from "@/services/familyService";
 import { getParticipants } from "@/services/participantService";
@@ -32,7 +32,7 @@ export default function Home() {
 
   const timer = useTimer(supabase, familyId);
 
-  const activeParticipants = participants.filter((p) => p.is_active);
+  const activeParticipants = useMemo(() => participants.filter((p) => p.is_active), [participants]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -126,6 +126,8 @@ export default function Home() {
         <div className="relative">
           <button
             onClick={() => setShowMenu(!showMenu)}
+            aria-label="Меню"
+            aria-expanded={showMenu}
             className="text-zinc-400 hover:text-white text-xl px-2"
           >
             ⋮
@@ -150,7 +152,7 @@ export default function Home() {
                   const code = await getFamilyInviteCode(supabase, familyId);
                   if (code) {
                     navigator.clipboard?.writeText(code);
-                    alert(`Код: ${code}`);
+                    toast?.(`Код скопійовано: ${code}`, "success");
                   }
                   setShowMenu(false);
                 }}
