@@ -79,5 +79,13 @@ CREATE POLICY "Family members can manage events"
   USING (family_id IN (SELECT family_id FROM family_members WHERE user_id = auth.uid()))
   WITH CHECK (family_id IN (SELECT family_id FROM family_members WHERE user_id = auth.uid()));
 
--- 7. Enable realtime for timer_entries too
-ALTER PUBLICATION supabase_realtime ADD TABLE timer_entries;
+-- 7. Enable realtime for timer_entries (skip if already added)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'timer_entries'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE timer_entries;
+  END IF;
+END $$;
