@@ -151,7 +151,7 @@ export default function DayEvents({ date, events, participants, familyId, userId
       startTime,
       endTime,
       participantId: participantId || null,
-    });
+    }, familyId);
 
     if (result.error) {
       setError(result.error);
@@ -165,7 +165,7 @@ export default function DayEvents({ date, events, participants, familyId, userId
   };
 
   const handleDelete = async (eventId) => {
-    const result = await deleteEvent(supabase, eventId);
+    const result = await deleteEvent(supabase, eventId, familyId);
     if (result.error) {
       toast?.(result.error, "error");
     } else {

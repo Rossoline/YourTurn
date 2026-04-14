@@ -60,7 +60,7 @@ export async function createEvent(supabase, { familyId, participantId, title, da
   return { event: data };
 }
 
-export async function updateEvent(supabase, eventId, updates) {
+export async function updateEvent(supabase, eventId, updates, familyId = null) {
   const mapped = {};
   if (updates.title !== undefined) mapped.title = updates.title.trim();
   if (updates.participantId !== undefined) mapped.participant_id = updates.participantId;
@@ -68,19 +68,17 @@ export async function updateEvent(supabase, eventId, updates) {
   if (updates.startTime !== undefined) mapped.start_time = updates.startTime;
   if (updates.endTime !== undefined) mapped.end_time = updates.endTime;
 
-  const { error } = await supabase
-    .from("calendar_events")
-    .update(mapped)
-    .eq("id", eventId);
+  const query = supabase.from("calendar_events").update(mapped).eq("id", eventId);
+  if (familyId) query.eq("family_id", familyId);
 
+  const { error } = await query;
   return { error: error ? "Не вдалося оновити подію" : null };
 }
 
-export async function deleteEvent(supabase, eventId) {
-  const { error } = await supabase
-    .from("calendar_events")
-    .delete()
-    .eq("id", eventId);
+export async function deleteEvent(supabase, eventId, familyId = null) {
+  const query = supabase.from("calendar_events").delete().eq("id", eventId);
+  if (familyId) query.eq("family_id", familyId);
 
+  const { error } = await query;
   return { error: error ? "Не вдалося видалити подію" : null };
 }

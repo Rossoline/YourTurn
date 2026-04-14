@@ -14,8 +14,9 @@ export async function createFamily(supabase, { name, userId, role }) {
   if (!name?.trim()) return { error: "Вкажіть назву сім'ї" };
   if (!userId) return { error: "Користувач не авторизований" };
   if (!role?.trim()) return { error: "Вкажіть роль" };
-  const bytes = crypto.getRandomValues(new Uint8Array(4));
-  const code = Array.from(bytes, (b) => b.toString(36)).join("").substring(0, 6).toUpperCase();
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I/O/0/1 to avoid confusion
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  const code = Array.from(bytes, (b) => chars[b % chars.length]).join("");
 
   const { data: family, error: famErr } = await supabase
     .from("families")

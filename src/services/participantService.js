@@ -33,12 +33,11 @@ export async function addParticipant(supabase, { familyId, name, color }) {
   return { participant: data };
 }
 
-export async function updateParticipant(supabase, id, updates) {
-  const { error } = await supabase
-    .from("participants")
-    .update(updates)
-    .eq("id", id);
+export async function updateParticipant(supabase, id, updates, familyId = null) {
+  const query = supabase.from("participants").update(updates).eq("id", id);
+  if (familyId) query.eq("family_id", familyId);
 
+  const { error } = await query;
   return { error: error ? "Не вдалося оновити" : null };
 }
 
@@ -46,7 +45,7 @@ export async function toggleParticipant(supabase, id, isActive) {
   return updateParticipant(supabase, id, { is_active: isActive });
 }
 
-export async function deleteParticipant(supabase, id) {
+export async function deleteParticipant(supabase, id, familyId = null) {
   // Clean up related data before deleting
   await Promise.all([
     supabase.from("timer_entries").delete().eq("participant_id", id),
@@ -54,10 +53,9 @@ export async function deleteParticipant(supabase, id) {
     supabase.from("calendar_events").delete().eq("participant_id", id),
   ]);
 
-  const { error } = await supabase
-    .from("participants")
-    .delete()
-    .eq("id", id);
+  const query = supabase.from("participants").delete().eq("id", id);
+  if (familyId) query.eq("family_id", familyId);
 
+  const { error } = await query;
   return { error: error ? "Не вдалося видалити" : null };
 }

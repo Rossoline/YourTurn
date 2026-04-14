@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# YourTurn
 
-## Getting Started
+Family time tracking app. Track who spends how much time with your child.
 
-First, run the development server:
+## Features
+
+- **Timer** — switch between participants, track time per person with real-time sync across devices
+- **Calendar** — monthly view with event planning, assign tasks to family members
+- **Statistics** — daily breakdown, session history, period comparison (today / 7 / 14 / 30 days)
+- **Family system** — create a family, invite members with a code, manage participants
+- **Multi-device** — real-time sync via Supabase, optimistic locking for concurrent access
+- **PWA** — installable on mobile, app icons, standalone mode
+
+## Tech stack
+
+- **Next.js 16** (App Router, Turbopack)
+- **Supabase** (PostgreSQL, Auth, Real-time, RLS)
+- **Tailwind CSS v4**
+- **Google OAuth** via Supabase Auth
+- **Sentry** for error tracking
+- **Vercel** for deployment
+- **GitHub Actions** CI
+
+## Getting started
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+### Environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create `.env.local`:
 
-## Learn More
+```
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
-To learn more about Next.js, take a look at the following resources:
+Optional:
+```
+NEXT_PUBLIC_SENTRY_DSN=your_sentry_dsn
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Database
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Run the SQL files in Supabase SQL Editor:
+1. `supabase-schema.sql` — core tables (families, members, timer state)
+2. `calendar_events.sql` — calendar events table
 
-## Deploy on Vercel
+## Project structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+src/
+  app/            — pages (timer, stats, login, signup, auth callback)
+  components/     — UI components (Timer, Calendar, Toast, Skeleton, etc.)
+  hooks/          — useTimer (real-time timer state)
+  services/       — data layer (family, participant, timer, calendar, stats)
+  utils/          — helpers (format, colors, throttle, rate limit)
+  lib/supabase/   — Supabase client/server wrappers
+  middleware.js   — auth protection + rate limiting
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deployment
+
+The `main` branch auto-deploys to Vercel. Development happens on `dev`.
+
+```bash
+git checkout dev     # work here
+git push origin dev  # push changes
+# when ready:
+git checkout main && git merge dev && git push origin main
+```
