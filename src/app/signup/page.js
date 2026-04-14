@@ -18,6 +18,12 @@ export default function SignupPage() {
     setLoading(true);
     setError(null);
 
+    if (password.length < 8) {
+      setError("Пароль має містити мінімум 8 символів");
+      setLoading(false);
+      return;
+    }
+
     const supabase = createClient();
     const { error } = await supabase.auth.signUp({
       email,
