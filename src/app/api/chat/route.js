@@ -5,6 +5,8 @@ const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
+const SYSTEM_PROMPT = "Ти помічник для сімейної програми відстеження часу екрану. Твоя роль — допомагати користувачам відповідями на запитання про управління часом і навички добре користуватися інтернетом. Говори українською мовою. Будь дружелюбним, позитивним і захоплюючим. Якщо користувач запитує про витрачений час або статистику, використовуй функцію get_timer_data.";
+
 async function getTimerDataForAgent(supabase, familyId) {
   const today = new Date().toISOString().split("T")[0];
 
@@ -99,7 +101,7 @@ export async function POST(request) {
     let response = await client.messages.create({
       model: "claude-3-5-sonnet-20241022",
       max_tokens: 1024,
-      system: `Ти помічник для сімейної програми відстеження часу екрану. Твоя роль — допомагати користувачам відповідями на запитання про управління часом і навички добре користуватися інтернетом. Говори українською мовою. Будь дружелюбним, позитивним і захоплюючим. Якщо користувач запитує про витрачений час або статистику, використовуй функцію get_timer_data.`,
+      system: SYSTEM_PROMPT,
       messages,
       tools,
     });
@@ -131,7 +133,7 @@ export async function POST(request) {
         response = await client.messages.create({
           model: "claude-3-5-sonnet-20241022",
           max_tokens: 1024,
-          system: `Ти помічник для сімейної програми відстеження часу екрану. Твоя роль — допомагати користувачам відповідями на запитання про управління часом і навички добре користуватися інтернетом. Говори українською мовою. Будь дружелюбним, позитивним і захоплюючим.`,
+          system: SYSTEM_PROMPT,
           messages,
           tools,
         });
