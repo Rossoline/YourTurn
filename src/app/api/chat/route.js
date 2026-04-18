@@ -1,43 +1,11 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
+import { runChatAgent } from "@/lib/chat-agent";
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
-
-const SYSTEM_PROMPT = "Ти помічник для управління часом екрану. " +
-    "Говори українською, КОРОТКО і лаконічно. Давай відповіді 1-3 речення або короткий список без зайвих слів." +
-    " Будь корисним і дружелюбним. Якщо про витрачений час — використовуй get_timer_data.";
-
-async function getTimerDataForAgent(supabase, familyId) {
-  const today = new Date().toISOString().split("T")[0];
-
-  const { data: entries } = await supabase
-    .from("timer_entries")
-    .select("participant_id, time_ms")
-    .eq("family_id", familyId)
-    .eq("date", today);
-
-  const { data: participants } = await supabase
-    .from("participants")
-    .select("id, name")
-    .eq("family_id", familyId)
-    .eq("is_active", true);
-
-  let summary = "Дані таймера на сьогодні:\n";
-  if (entries && entries.length > 0 && participants) {
-    participants.forEach((p) => {
-      const entry = entries.find((e) => e.participant_id === p.id);
-      const timeMs = entry ? entry.time_ms : 0;
-      const hours = Math.floor(timeMs / 3600000);
-      const minutes = Math.floor((timeMs % 3600000) / 60000);
-      summary += `${p.name}: ${hours}h ${minutes}m\n`;
-    });
-  } else {
-    summary += "Дані з таймера ще не збережені на сьогодні.";
-  }
-
-  return summary;
+function jsonError(message, status) {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
 export async function POST(request) {
@@ -45,23 +13,12 @@ export async function POST(request) {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    if (authError || !user) return jsonError("Unauthorized", 401);
 
     const { userMessage, conversationHistory, familyId } = await request.json();
 
-    if (!familyId || !userMessage) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    if (!familyId || !userMessage) return jsonError("Missing required fields", 400);
 
-    // Verify user has access to this family
     const { data: familyMember } = await supabase
       .from("family_members")
       .select("id")
@@ -69,106 +26,16 @@ export async function POST(request) {
       .eq("user_id", user.id)
       .single();
 
-    if (!familyMember) {
-      return new Response(JSON.stringify({ error: "Family access denied" }), {
-        status: 403,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    if (!familyMember) return jsonError("Family access denied", 403);
 
-    // Format conversation for Claude
-    const messages = conversationHistory.map((msg) => ({
-      role: msg.role,
-      content: msg.content,
-    }));
+    const message = await runChatAgent(supabase, familyId, userMessage, conversationHistory);
 
-    messages.push({
-      role: "user",
-      content: userMessage,
-    });
-
-    // Define tools for Claude
-    const tools = [
-      {
-        name: "get_timer_data",
-        description: "Отримати поточні дані про витрачений час з таймера",
-        input_schema: {
-          type: "object",
-          properties: {},
-          required: [],
-        },
-      },
-    ];
-
-    let response = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 256,
-      system: [
-        {
-          type: "text",
-          text: SYSTEM_PROMPT,
-          cache_control: { type: "ephemeral" },
-        },
-      ],
-      messages,
-      tools,
-    });
-
-    // Handle tool use in a loop
-    while (response.stop_reason === "tool_use") {
-      const toolUseBlock = response.content.find((block) => block.type === "tool_use");
-
-      if (toolUseBlock && toolUseBlock.name === "get_timer_data") {
-        const timerData = await getTimerDataForAgent(supabase, familyId);
-
-        // Continue conversation with tool result
-        messages.push({
-          role: "assistant",
-          content: response.content,
-        });
-
-        messages.push({
-          role: "user",
-          content: [
-            {
-              type: "tool_result",
-              tool_use_id: toolUseBlock.id,
-              content: timerData,
-            },
-          ],
-        });
-
-        response = await client.messages.create({
-          model: "claude-haiku-4-5-20251001",
-          max_tokens: 256,
-          system: [
-            {
-              type: "text",
-              text: SYSTEM_PROMPT,
-              cache_control: { type: "ephemeral" },
-            },
-          ],
-          messages,
-          tools,
-        });
-      } else {
-        break;
-      }
-    }
-
-    // Extract final text response
-    const textBlock = response.content.find((block) => block.type === "text");
-    const assistantMessage = textBlock ? textBlock.text : "Вибачте, відбулася помилка.";
-
-    return new Response(JSON.stringify({ message: assistantMessage }), {
+    return new Response(JSON.stringify({ message }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
     console.error("Chat API error:", error);
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    return jsonError("Internal server error", 500);
   }
 }
