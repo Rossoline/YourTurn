@@ -1,10 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { runChatAgent } from "@/lib/ai/agent";
+import { checkAiRateLimit } from "@/lib/ai/middleware";
 
-function jsonError(message, status) {
+function jsonError(message, status, extraHeaders = {}) {
   return new Response(JSON.stringify({ error: message }), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...extraHeaders },
   });
 }
 
@@ -14,6 +15,13 @@ export async function POST(request) {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) return jsonError("Unauthorized", 401);
+
+    const limit = checkAiRateLimit(user.id);
+    if (!limit.allowed) {
+      return jsonError("Too many requests", 429, {
+        "Retry-After": String(Math.ceil(limit.retryAfter / 1000)),
+      });
+    }
 
     const { userMessage, conversationHistory, familyId } = await request.json();
 
@@ -30,6 +38,7 @@ export async function POST(request) {
 
     const message = await runChatAgent({
       supabase,
+      userId: user.id,
       familyId,
       userMessage,
       conversationHistory,

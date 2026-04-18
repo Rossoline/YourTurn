@@ -1,15 +1,25 @@
 import { anthropic } from "./client";
 import { MODEL, MAX_TOKENS, buildSystemMessage } from "./config";
 import { toolDefinitions, executeTool } from "./tools";
+import { logUsage } from "./middleware";
 
-async function callModel(messages) {
-  return anthropic.messages.create({
+async function callModel(messages, logContext) {
+  const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: MAX_TOKENS,
     system: buildSystemMessage(),
     messages,
     tools: toolDefinitions,
   });
+
+  logUsage({
+    userId: logContext.userId,
+    familyId: logContext.familyId,
+    usage: response.usage,
+    stopReason: response.stop_reason,
+  });
+
+  return response;
 }
 
 async function handleToolUse(response, messages, context) {
@@ -30,10 +40,10 @@ async function handleToolUse(response, messages, context) {
     ],
   });
 
-  return callModel(messages);
+  return callModel(messages, context);
 }
 
-export async function runChatAgent({ supabase, familyId, userMessage, conversationHistory }) {
+export async function runChatAgent({ supabase, userId, familyId, userMessage, conversationHistory }) {
   const messages = conversationHistory.map((msg) => ({
     role: msg.role,
     content: msg.content,
@@ -41,10 +51,11 @@ export async function runChatAgent({ supabase, familyId, userMessage, conversati
 
   messages.push({ role: "user", content: userMessage });
 
-  let response = await callModel(messages);
+  const context = { supabase, userId, familyId };
+  let response = await callModel(messages, context);
 
   while (response.stop_reason === "tool_use") {
-    const next = await handleToolUse(response, messages, { supabase, familyId });
+    const next = await handleToolUse(response, messages, context);
     if (!next) break;
     response = next;
   }
