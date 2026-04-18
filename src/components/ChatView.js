@@ -53,7 +53,7 @@ export default function ChatView({ supabase, familyId, userId }) {
       ]);
 
       // Get Claude response
-      const response = await chatWithClaude(supabase, familyId, userId, userMessage, messages);
+      const response = await chatWithClaude(familyId, userMessage, messages);
 
       // Save assistant message
       await saveChatMessage(supabase, familyId, userId, "assistant", response);

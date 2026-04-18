@@ -39,7 +39,7 @@ Create `.env.local`:
 ```
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-NEXT_PUBLIC_ANTHROPIC_API_KEY=your_claude_api_key
+ANTHROPIC_API_KEY=your_claude_api_key
 ```
 
 Optional:
@@ -47,7 +47,7 @@ Optional:
 NEXT_PUBLIC_SENTRY_DSN=your_sentry_dsn
 ```
 
-**Note:** Get your Claude API key from [console.anthropic.com](https://console.anthropic.com)
+**Note:** Get your Claude API key from [console.anthropic.com](https://console.anthropic.com). Keep `ANTHROPIC_API_KEY` secret — it's only used on the server side.
 
 ### Database
 
