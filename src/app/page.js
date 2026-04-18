@@ -14,6 +14,7 @@ import ControlPanel from "@/components/ControlPanel";
 import ParticipantManager from "@/components/ParticipantManager";
 import BottomTabs from "@/components/BottomTabs";
 import CalendarView from "@/components/CalendarView";
+import ChatView from "@/components/ChatView";
 import { useToast } from "@/components/Toast";
 import { TimerSkeleton } from "@/components/Skeleton";
 
@@ -252,12 +253,18 @@ export default function Home() {
             onReset={timer.handleReset}
           />
         </>
-      ) : (
+      ) : activeTab === "calendar" ? (
         <CalendarView
           supabase={supabase}
           familyId={familyId}
           userId={user?.id}
           participants={participants}
+        />
+      ) : (
+        <ChatView
+          supabase={supabase}
+          familyId={familyId}
+          userId={user?.id}
         />
       )}
 
