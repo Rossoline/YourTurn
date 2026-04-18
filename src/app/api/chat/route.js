@@ -5,7 +5,9 @@ const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-const SYSTEM_PROMPT = "Ти помічник для управління часом екрану. Говори українською. Будь корисним і дружелюбним. Якщо про витрачений час — використовуй get_timer_data.";
+const SYSTEM_PROMPT = "Ти помічник для управління часом екрану. " +
+    "Говори українською, КОРОТКО і лаконічно. Давай відповіді 1-3 речення або короткий список без зайвих слів." +
+    " Будь корисним і дружелюбним. Якщо про витрачений час — використовуй get_timer_data.";
 
 async function getTimerDataForAgent(supabase, familyId) {
   const today = new Date().toISOString().split("T")[0];
