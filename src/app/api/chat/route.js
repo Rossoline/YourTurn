@@ -99,7 +99,7 @@ export async function POST(request) {
     ];
 
     let response = await client.messages.create({
-      model: "claude-sonnet-4.6",
+      model: "claude-haiku",
       max_tokens: 256,
       system: SYSTEM_PROMPT,
       messages,
@@ -131,7 +131,7 @@ export async function POST(request) {
         });
 
         response = await client.messages.create({
-          model: "claude-sonnet-4.6",
+          model: "claude-haiku",
           max_tokens: 256,
           system: SYSTEM_PROMPT,
           messages,
