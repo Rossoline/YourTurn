@@ -99,10 +99,19 @@ export async function POST(request) {
     ];
 
     let response = await client.messages.create({
-      model: "claude-haiku",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 256,
-      system: SYSTEM_PROMPT,
-      messages,
+      system: [
+        {
+          type: "text",
+          text: SYSTEM_PROMPT,
+          cache_control: { type: "ephemeral" },
+        },
+      ],
+      messages: messages.map((msg, idx) => ({
+        ...msg,
+        cache_control: idx === messages.length - 1 ? undefined : { type: "ephemeral" },
+      })),
       tools,
     });
 
@@ -131,10 +140,19 @@ export async function POST(request) {
         });
 
         response = await client.messages.create({
-          model: "claude-haiku",
+          model: "claude-haiku-4-5-20251001",
           max_tokens: 256,
-          system: SYSTEM_PROMPT,
-          messages,
+          system: [
+            {
+              type: "text",
+              text: SYSTEM_PROMPT,
+              cache_control: { type: "ephemeral" },
+            },
+          ],
+          messages: messages.map((msg, idx) => ({
+            ...msg,
+            cache_control: idx === messages.length - 1 ? undefined : { type: "ephemeral" },
+          })),
           tools,
         });
       } else {
