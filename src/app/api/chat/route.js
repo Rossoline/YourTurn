@@ -108,10 +108,7 @@ export async function POST(request) {
           cache_control: { type: "ephemeral" },
         },
       ],
-      messages: messages.map((msg, idx) => ({
-        ...msg,
-        cache_control: idx === messages.length - 1 ? undefined : { type: "ephemeral" },
-      })),
+      messages,
       tools,
     });
 
@@ -149,10 +146,7 @@ export async function POST(request) {
               cache_control: { type: "ephemeral" },
             },
           ],
-          messages: messages.map((msg, idx) => ({
-            ...msg,
-            cache_control: idx === messages.length - 1 ? undefined : { type: "ephemeral" },
-          })),
+          messages,
           tools,
         });
       } else {
