@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { runChatAgent } from "@/lib/chat-agent";
+import { runChatAgent } from "@/lib/ai/agent";
 
 function jsonError(message, status) {
   return new Response(JSON.stringify({ error: message }), {
@@ -28,7 +28,12 @@ export async function POST(request) {
 
     if (!familyMember) return jsonError("Family access denied", 403);
 
-    const message = await runChatAgent(supabase, familyId, userMessage, conversationHistory);
+    const message = await runChatAgent({
+      supabase,
+      familyId,
+      userMessage,
+      conversationHistory,
+    });
 
     return new Response(JSON.stringify({ message }), {
       status: 200,
