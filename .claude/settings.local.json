@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp yourturn/.gitignore .gitignore)",
+      "Bash(cp yourturn/README.md README.md)",
+      "Bash(cp yourturn/package.json .)",
+      "Bash(cp yourturn/package-lock.json .)",
+      "Bash(cp yourturn/eslint.config.mjs .)",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(git add:*)",
+      "Bash(git rm:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)",
+      "Bash(npx vercel:*)",
+      "Bash(git checkout:*)",
+      "Bash(git merge:*)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "Bash(find /d/Create/YourTurn/src -type f -exec wc -l {} +)",
+      "Bash(npx next:*)",
+      "Bash(npx sharp-cli:*)",
+      "Bash(grep -r \"participants\" /d/Create/YourTurn/*.sql)",
+      "Read(//c/Users/nekri/.claude/**)",
+      "Read(//c/Users/nekri/.claude/skills/**)",
+      "Bash(cat ~/.claude/skills/pr-description/*.md)",
+      "Bash(cat ~/.claude/skills/pr-description/*.json)"
+    ]
+  }
+}

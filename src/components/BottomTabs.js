@@ -4,6 +4,7 @@ export default function BottomTabs({ active, onChange }) {
   const tabs = [
     { key: "timer", label: "Таймер", icon: "⏱" },
     { key: "calendar", label: "Календар", icon: "📅" },
+    { key: "chat", label: "Чат", icon: "💬" },
   ];
 
   return (
