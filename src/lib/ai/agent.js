@@ -1,13 +1,61 @@
 import { anthropic } from "./client";
-import { MODEL, MAX_TOKENS, buildSystemMessage } from "./config";
+import {
+  MODEL,
+  MAX_TOKENS,
+  RECENT_WINDOW,
+  SUMMARIZE_THRESHOLD,
+  buildSystemMessage,
+} from "./config";
 import { toolDefinitions, executeTool } from "./tools";
 import { logUsage } from "./middleware";
+import { summarizeMessages } from "./summarizer";
 
-async function callModel(messages, logContext) {
+// Normalize history to Claude message shape.
+function normalize(history) {
+  return history.map((msg) => ({ role: msg.role, content: msg.content }));
+}
+
+// Mark the last history message with cache_control so everything up to
+// and including it becomes cacheable on subsequent requests.
+function withHistoryCache(historyMessages) {
+  if (!historyMessages.length) return historyMessages;
+
+  return historyMessages.map((msg, idx) => {
+    if (idx !== historyMessages.length - 1) return msg;
+
+    const contentBlocks = typeof msg.content === "string"
+      ? [{ type: "text", text: msg.content }]
+      : msg.content;
+
+    const marked = contentBlocks.map((block, i) =>
+      i === contentBlocks.length - 1
+        ? { ...block, cache_control: { type: "ephemeral" } }
+        : block
+    );
+
+    return { ...msg, content: marked };
+  });
+}
+
+// Split history into (summary_source, recent) when it grows past threshold.
+async function compressHistory(history, context) {
+  if (history.length <= SUMMARIZE_THRESHOLD) {
+    return { summary: null, recent: history };
+  }
+
+  const cutoff = history.length - RECENT_WINDOW;
+  const toSummarize = history.slice(0, cutoff);
+  const recent = history.slice(cutoff);
+
+  const summary = await summarizeMessages(toSummarize, context);
+  return { summary, recent };
+}
+
+async function callModel({ messages, summary, logContext }) {
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: MAX_TOKENS,
-    system: buildSystemMessage(),
+    system: buildSystemMessage(summary),
     messages,
     tools: toolDefinitions,
   });
@@ -22,7 +70,7 @@ async function callModel(messages, logContext) {
   return response;
 }
 
-async function handleToolUse(response, messages, context) {
+async function handleToolUse(response, messages, context, summary) {
   const toolUseBlock = response.content.find((b) => b.type === "tool_use");
   if (!toolUseBlock) return null;
 
@@ -40,22 +88,28 @@ async function handleToolUse(response, messages, context) {
     ],
   });
 
-  return callModel(messages, context);
+  return callModel({ messages, summary, logContext: context });
 }
 
-export async function runChatAgent({ supabase, userId, familyId, userMessage, conversationHistory }) {
-  const messages = conversationHistory.map((msg) => ({
-    role: msg.role,
-    content: msg.content,
-  }));
-
-  messages.push({ role: "user", content: userMessage });
-
+export async function runChatAgent({
+  supabase,
+  userId,
+  familyId,
+  userMessage,
+  conversationHistory,
+}) {
   const context = { supabase, userId, familyId };
-  let response = await callModel(messages, context);
+
+  const history = normalize(conversationHistory);
+  const { summary, recent } = await compressHistory(history, context);
+
+  const cachedHistory = withHistoryCache(recent);
+  const messages = [...cachedHistory, { role: "user", content: userMessage }];
+
+  let response = await callModel({ messages, summary, logContext: context });
 
   while (response.stop_reason === "tool_use") {
-    const next = await handleToolUse(response, messages, context);
+    const next = await handleToolUse(response, messages, context, summary);
     if (!next) break;
     response = next;
   }
