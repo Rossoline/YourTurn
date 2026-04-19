@@ -95,7 +95,7 @@ export default function ChatWindow({ supabase, familyId, userId, chat, onBack, o
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
         {loading ? (
           <div className="flex justify-center items-center h-full">
             <div className="text-zinc-400 text-sm">Завантаження...</div>

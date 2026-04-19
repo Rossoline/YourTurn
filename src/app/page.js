@@ -205,11 +205,12 @@ export default function Home() {
         </div>
       )}
 
-      {/* Tab content */}
+      {/* Tab content — flex-1 min-h-0 prevents overflow in flex column */}
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
       {activeTab === "timer" ? (
         <>
           {/* Timers */}
-          <div className="flex flex-col flex-1">
+          <div className="flex flex-col flex-1 min-h-0">
             {activeParticipants.map((p) => {
               const time = timer.getTime(p.id);
               const percent = totalTime > 0 ? (time / totalTime) * 100 : null;
@@ -267,6 +268,7 @@ export default function Home() {
           userId={user?.id}
         />
       )}
+      </div>
 
       {/* Bottom tabs */}
       <BottomTabs active={activeTab} onChange={setActiveTab} />

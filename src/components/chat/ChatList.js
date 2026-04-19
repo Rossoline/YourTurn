@@ -28,7 +28,7 @@ export default function ChatList({ chats, loading, onSelect, onCreate, onDelete 
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {chats.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-6">
             <div className="text-4xl">💬</div>
