@@ -17,6 +17,7 @@ function json(data, status = 200) {
 // PATCH /api/chats/[id] — rename chat
 export async function PATCH(request, { params }) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) return jsonError("Unauthorized", 401);
@@ -27,7 +28,7 @@ export async function PATCH(request, { params }) {
     const { error } = await supabase
       .from("chats")
       .update({ name: name.trim() })
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", user.id);
 
     if (error) throw error;
@@ -41,6 +42,7 @@ export async function PATCH(request, { params }) {
 // DELETE /api/chats/[id] — delete chat and all its messages (cascade)
 export async function DELETE(request, { params }) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) return jsonError("Unauthorized", 401);
@@ -48,7 +50,7 @@ export async function DELETE(request, { params }) {
     const { error } = await supabase
       .from("chats")
       .delete()
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", user.id);
 
     if (error) throw error;
