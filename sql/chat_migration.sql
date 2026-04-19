@@ -4,12 +4,13 @@
 -- 1. chat_messages: clear old data, add chat_id
 TRUNCATE chat_messages CASCADE;
 
+-- Drop policies first (they depend on family_id column)
+DROP POLICY IF EXISTS "Users can view their family chat messages" ON chat_messages;
+DROP POLICY IF EXISTS "Users can insert messages to their family" ON chat_messages;
+
 ALTER TABLE chat_messages
   DROP COLUMN IF EXISTS family_id,
   ADD COLUMN chat_id UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE;
-
-DROP POLICY IF EXISTS "Users can view their family chat messages" ON chat_messages;
-DROP POLICY IF EXISTS "Users can insert messages to their family" ON chat_messages;
 
 CREATE POLICY "Users can view their chat messages"
   ON chat_messages FOR SELECT TO authenticated
