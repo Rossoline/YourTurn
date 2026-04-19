@@ -1,10 +1,41 @@
 "use client";
 
+import { useState } from "react";
+
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString("uk-UA", { day: "numeric", month: "short" });
 }
 
+function DeleteConfirmModal({ chatName, onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-sm bg-zinc-900 rounded-t-2xl p-6 pb-8 border-t border-zinc-700">
+        <h3 className="text-white font-semibold text-base mb-1">Видалити чат?</h3>
+        <p className="text-zinc-400 text-sm mb-6">
+          «{chatName}» та всі повідомлення будуть видалені назавжди.
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2.5 rounded-xl bg-zinc-800 text-zinc-300 text-sm font-medium hover:bg-zinc-700 transition-colors"
+          >
+            Скасувати
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors"
+          >
+            Видалити
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ChatList({ chats, loading, onSelect, onCreate, onDelete }) {
+  const [pendingDelete, setPendingDelete] = useState(null); // { id, name }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full bg-zinc-950">
@@ -53,7 +84,7 @@ export default function ChatList({ chats, loading, onSelect, onCreate, onDelete 
                   <p className="text-zinc-500 text-xs mt-0.5">{formatDate(chat.created_at)}</p>
                 </div>
                 <button
-                  onClick={(e) => { e.stopPropagation(); onDelete(chat.id); }}
+                  onClick={(e) => { e.stopPropagation(); setPendingDelete({ id: chat.id, name: chat.name }); }}
                   className="text-zinc-600 hover:text-red-400 p-1 transition-colors shrink-0"
                   aria-label="Видалити чат"
                 >
@@ -64,6 +95,15 @@ export default function ChatList({ chats, loading, onSelect, onCreate, onDelete 
           </ul>
         )}
       </div>
+
+      {/* Delete confirmation modal */}
+      {pendingDelete && (
+        <DeleteConfirmModal
+          chatName={pendingDelete.name}
+          onConfirm={() => { onDelete(pendingDelete.id); setPendingDelete(null); }}
+          onCancel={() => setPendingDelete(null)}
+        />
+      )}
     </div>
   );
 }
