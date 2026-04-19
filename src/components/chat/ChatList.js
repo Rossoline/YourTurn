@@ -8,8 +8,8 @@ function formatDate(iso) {
 
 function DeleteConfirmModal({ chatName, onConfirm, onCancel }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-sm bg-zinc-900 rounded-t-2xl p-6 pb-8 border-t border-zinc-700">
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="w-72 bg-zinc-900 rounded-2xl p-6 border border-zinc-700 shadow-xl">
         <h3 className="text-white font-semibold text-base mb-1">Видалити чат?</h3>
         <p className="text-zinc-400 text-sm mb-6">
           «{chatName}» та всі повідомлення будуть видалені назавжди.
