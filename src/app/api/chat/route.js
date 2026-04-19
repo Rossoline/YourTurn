@@ -13,7 +13,6 @@ export async function POST(request) {
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-
     if (authError || !user) return jsonError("Unauthorized", 401);
 
     const limit = checkAiRateLimit(user.id);
@@ -23,23 +22,24 @@ export async function POST(request) {
       });
     }
 
-    const { userMessage, conversationHistory, familyId } = await request.json();
+    const { chatId, familyId, userMessage, conversationHistory } = await request.json();
+    if (!chatId || !familyId || !userMessage) return jsonError("Missing required fields", 400);
 
-    if (!familyId || !userMessage) return jsonError("Missing required fields", 400);
-
-    const { data: familyMember } = await supabase
-      .from("family_members")
+    // Verify the chat belongs to this user
+    const { data: chat } = await supabase
+      .from("chats")
       .select("id")
-      .eq("family_id", familyId)
+      .eq("id", chatId)
       .eq("user_id", user.id)
       .single();
 
-    if (!familyMember) return jsonError("Family access denied", 403);
+    if (!chat) return jsonError("Chat not found or access denied", 403);
 
     const message = await runChatAgent({
       supabase,
       userId: user.id,
       familyId,
+      chatId,
       userMessage,
       conversationHistory,
     });

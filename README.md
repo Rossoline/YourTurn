@@ -51,11 +51,12 @@ NEXT_PUBLIC_SENTRY_DSN=your_sentry_dsn
 
 ### Database
 
-Run the SQL files from `sql/` in Supabase SQL Editor:
+Run the SQL files from `sql/` in Supabase SQL Editor **in order**:
 1. `sql/supabase-schema.sql` — core tables (families, members, timer state)
 2. `sql/calendar_events.sql` — calendar events table
 3. `sql/chat_messages.sql` — chat messages table
-4. `sql/chat_summaries.sql` — chat summary cache
+4. `sql/chats.sql` — per-user chat sessions
+5. `sql/chat_migration.sql` — links messages/summaries to chats (run after chats.sql)
 
 ## Project structure
 

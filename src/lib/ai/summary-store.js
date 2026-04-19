@@ -1,23 +1,23 @@
-export async function getSummary(supabase, familyId) {
+export async function getSummary(supabase, chatId) {
   const { data } = await supabase
     .from("chat_summaries")
     .select("summary, summarized_count")
-    .eq("family_id", familyId)
+    .eq("chat_id", chatId)
     .maybeSingle();
 
   return data ? { summary: data.summary, summarizedCount: data.summarized_count } : null;
 }
 
-export async function saveSummary(supabase, familyId, summary, summarizedCount) {
+export async function saveSummary(supabase, chatId, summary, summarizedCount) {
   await supabase
     .from("chat_summaries")
     .upsert(
       {
-        family_id: familyId,
+        chat_id: chatId,
         summary,
         summarized_count: summarizedCount,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "family_id" }
+      { onConflict: "chat_id" }
     );
 }

@@ -48,7 +48,7 @@ async function compressHistory(history, context) {
   }
 
   const targetCount = history.length - RECENT_WINDOW;
-  const cached = await getSummary(context.supabase, context.familyId);
+  const cached = await getSummary(context.supabase, context.chatId);
 
   if (cached && targetCount - cached.summarizedCount < REFRESH_EVERY) {
     return {
@@ -59,7 +59,7 @@ async function compressHistory(history, context) {
 
   const toSummarize = history.slice(0, targetCount);
   const summary = await summarizeMessages(toSummarize, context);
-  await saveSummary(context.supabase, context.familyId, summary, targetCount);
+  await saveSummary(context.supabase, context.chatId, summary, targetCount);
   return { summary, recent: history.slice(targetCount) };
 }
 
@@ -107,10 +107,11 @@ export async function runChatAgent({
   supabase,
   userId,
   familyId,
+  chatId,
   userMessage,
   conversationHistory,
 }) {
-  const context = { supabase, userId, familyId };
+  const context = { supabase, userId, familyId, chatId };
 
   const history = normalize(conversationHistory);
   const { summary, recent } = await compressHistory(history, context);
